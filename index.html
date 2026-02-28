@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Glomer — Palace Museum</title>
+  <meta name="description" content="Glomer Palace Museum — A stunning 3D virtual museum inside a magnificent palace.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Raleway:wght@300;400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+
+<body>
+
+  <canvas id="canvas"></canvas>
+
+  <!-- ═══════════════ LOADING SCREEN ═══════════════ -->
+  <div id="loading">
+    <div class="loading-content">
+      <div class="loading-ornament">⚜</div>
+      <h1 class="loading-title">GLOMER</h1>
+      <p class="loading-subtitle">Palace Museum</p>
+      <div class="loading-bar-wrap">
+        <div id="loading-progress"></div>
+      </div>
+      <p class="loading-hint">Đang tải cung điện...</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════ EXTERIOR ENTER PROMPT (hidden fallback) ═══════════════ -->
+  <div id="enter-prompt" class="hidden">
+    <button id="btn-enter" style="display:none">Enter</button>
+  </div>
+
+  <!-- ═══════════════ DOOR HOVER HINT ═══════════════ -->
+  <div id="door-hint" class="hidden">
+    <div class="door-hint-inner">
+      <span class="door-hint-icon">🚪</span>
+      <span class="door-hint-text">Nhấn vào cửa chính để bước vào cung điện</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════ INTERIOR HUD ═══════════════ -->
+  <div id="hud" class="hidden">
+    <div id="crosshair">✦</div>
+    <div id="room-label-wrap">
+      <span class="room-ornament">⚜</span>
+      <span id="room-label">Đại Sảnh</span>
+    </div>
+    <div id="tooltip" class="hidden"></div>
+    <div id="nav-hint">WASD: Di chuyển &nbsp;|&nbsp; Mouse: Nhìn &nbsp;|&nbsp; Click: Tương tác &nbsp;|&nbsp; ESC: Dừng
+      chuột</div>
+
+    <!-- Room Navigation Buttons -->
+    <div id="room-nav">
+      <button class="room-btn active" data-room="grand_hall">Đại Sảnh</button>
+      <button class="room-btn" data-room="painting_gallery">Phòng Tranh</button>
+      <button class="room-btn" data-room="artifacts_room">Hiện Vật</button>
+      <button class="room-btn" data-room="sculpture_room">Điêu Khắc</button>
+      <button class="room-btn" data-room="archive_room">Lưu Trữ</button>
+    </div>
+
+    <!-- Back to Exterior -->
+    <button id="btn-exit-interior" title="Ra ngoài">🏛 Ra ngoài</button>
+  </div>
+
+  <!-- ═══════════════ FLIP CARD OVERLAY ═══════════════ -->
+  <div id="flip-overlay" class="hidden">
+    <div id="flip-backdrop"></div>
+    <div id="flip-scene">
+      <div id="flip-card">
+        <div id="card-inner">
+
+          <!-- ── FRONT: Image + Upload ── -->
+          <div id="card-front">
+            <button class="card-close" id="btn-close">✕</button>
+
+            <div id="image-container">
+              <img id="exhibit-img" class="hidden" alt="Exhibit Image" />
+              <div id="upload-zone">
+                <div class="upload-icon">🖼</div>
+                <p>Chưa có ảnh</p>
+                <small>Nhấn "Tải ảnh lên" để thêm</small>
+              </div>
+            </div>
+
+            <div class="card-meta">
+              <input type="text" id="exhibit-title-input" placeholder="Tên hiện vật / bức tranh..." maxlength="80">
+            </div>
+
+            <div class="card-actions-row">
+              <label class="btn-action btn-upload" for="file-input" id="label-upload">
+                📁 Tải ảnh lên
+              </label>
+              <input type="file" id="file-input" accept="image/*" class="hidden">
+              <button class="btn-action btn-download hidden" id="btn-download">⬇ Tải về</button>
+              <button class="btn-action btn-flip-front" id="btn-flip-to-back">📝 Mô tả →</button>
+            </div>
+
+            <div class="slot-info-bar">
+              <span id="slot-id-display"></span>
+            </div>
+          </div>
+
+          <!-- ── BACK: Description ── -->
+          <div id="card-back">
+            <button class="card-close" id="btn-close-back">✕</button>
+            <button class="btn-action btn-flip-back" id="btn-flip-to-front">← Ảnh</button>
+
+            <div class="back-header">
+              <div class="back-ornament">✦</div>
+              <h3 id="back-exhibit-title">Mô tả hiện vật</h3>
+            </div>
+
+            <textarea id="description-text"
+              placeholder="Nhập mô tả, ghi chú, thông tin về hiện vật này...&#10;&#10;Ví dụ: Tác giả, năm sáng tác, chất liệu, ý nghĩa..."></textarea>
+
+            <div class="back-actions">
+              <button id="btn-save" class="btn-save">💾 Lưu mô tả</button>
+              <span id="save-status"></span>
+            </div>
+          </div>
+
+        </div><!-- /card-inner -->
+      </div><!-- /flip-card -->
+    </div><!-- /flip-scene -->
+  </div><!-- /flip-overlay -->
+
+  <!-- Firebase SDK (modular) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+
+</html>
