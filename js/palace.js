@@ -352,12 +352,12 @@ function buildPalace(g) {
     cy(2.0, 2.0, 0.22, 16, gold, 0, 26.8, -7.05);
     sp(1.0, 12, gold, 0, 27.1, -7.05);
 
-    // Invisible click trigger
-    const trig = new THREE.Mesh(
-        new THREE.PlaneGeometry(14, 14),
-        new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide })
-    );
-    trig.position.set(0, 15.5, -6.8);
+    // Invisible click trigger — large plane facing camera (rotated to face -Z)
+    const trigGeo = new THREE.PlaneGeometry(18, 20);
+    const trigMat = new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide });
+    const trig = new THREE.Mesh(trigGeo, trigMat);
+    trig.position.set(0, 15.5, -5.5);  // in front of the door
+    // No rotation needed: default plane faces +Z so camera at z=70 looking at -Z will hit it
     trig.userData.clickable = 'enter'; g.add(trig);
     exteriorClickables.push(trig);
 
@@ -370,12 +370,12 @@ function buildPalace(g) {
     // Flag poles
     const fR = new THREE.MeshStandardMaterial({ color: 0xCC1818, side: THREE.DoubleSide });
     const fB = new THREE.MeshStandardMaterial({ color: 0x1030B0, side: THREE.DoubleSide });
-    const fY = new THREE.MeshStandardMaterial({ color: 0xD4A820, side: THREE.DoubleSide });
+    const flagY = new THREE.MeshStandardMaterial({ color: 0xD4A820, side: THREE.DoubleSide });
     [-36, -26, -16, 16, 26, 36].forEach((px, i) => {
         cy(0.1, 0.14, 16, 8, marble, px, 10, -7.6);
         cy(0.22, 0.18, 0.5, 8, gold, px, 18.4, -7.6);
         sp(0.3, 8, gold, px, 18.9, -7.6);
-        const fm = [fR, fB, fY, fY, fB, fR][i];
+        const fm = [fR, fB, flagY, flagY, fB, fR][i];
         bx(5.5, 3.0, 0.06, fm, px + 3, 17.3, -7.6);
         bx(5.7, 0.15, 0.07, gold, px + 3, 18.75, -7.6);
         bx(5.7, 0.15, 0.07, gold, px + 3, 15.8, -7.6);
