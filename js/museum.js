@@ -4,10 +4,10 @@ import * as THREE from 'three';
 // ── Room definitions ─────────────────────────────────────────
 export const ROOM_DATA = {
     grand_hall: { name: 'Đại Sảnh', center: [0, 0, 0], size: [50, 12, 50] },
-    painting_gallery: { name: 'Phòng Tranh', center: [-65, 0, 0], size: [26, 12, 60] },
-    artifacts_room: { name: 'Phòng Hiện Vật', center: [65, 0, 0], size: [50, 12, 50] },
-    sculpture_room: { name: 'Phòng Điêu Khắc', center: [0, 0, -65], size: [50, 12, 50] },
-    archive_room: { name: 'Phòng Lưu Trữ', center: [0, 0, 65], size: [50, 12, 50] },
+    painting_gallery: { name: 'Phòng Tranh', center: [-38, 0, 0], size: [26, 12, 60] },
+    artifacts_room: { name: 'Phòng Hiện Vật', center: [38, 0, 0], size: [26, 12, 60] },
+    sculpture_room: { name: 'Phòng Điêu Khắc', center: [0, 0, -38], size: [50, 12, 26] },
+    archive_room: { name: 'Phòng Lưu Trữ', center: [0, 0, 38], size: [50, 12, 26] },
 };
 
 // Doorway portal connections
@@ -25,11 +25,11 @@ export const columnPositions = [];
 
 // Teleport positions per room
 export const ROOM_TELEPORTS = {
-    grand_hall: [0, 1.7, 10],
-    painting_gallery: [-55, 1.7, 0],
-    artifacts_room: [55, 1.7, 0],
-    sculpture_room: [0, 1.7, -55],
-    archive_room: [0, 1.7, 55],
+    grand_hall: [0, 1.7, 8],
+    painting_gallery: [-38, 1.7, 0],
+    artifacts_room: [38, 1.7, 0],
+    sculpture_room: [0, 1.7, -38],
+    archive_room: [0, 1.7, 38],
 };
 
 // ── Helper: create MeshStandardMaterial ─────────────────────

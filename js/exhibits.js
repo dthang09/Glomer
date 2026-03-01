@@ -21,102 +21,78 @@ export const exhibitMap = {};   // slotId → { mesh, imageMesh, slotDef }
 export function generateSlots() {
     const slots = [];
     let id = 0;
-
-    // ─ Helper: wall painting slot ─
     function painting(roomId, x, y, z, rotY, label) {
         slots.push({ id: `slot_${id++}`, roomId, type: 'painting', position: [x, y, z], rotY, label });
     }
-    // ─ Helper: floor case slot ─
     function caseSlot(roomId, x, z, label) {
         slots.push({ id: `slot_${id++}`, roomId, type: 'case', position: [x, 0, z], rotY: 0, label });
     }
 
-    // ══════════════════════════════
-    // GRAND HALL  (center 0,0,0, size 50×10×50)
-    // ══════════════════════════════
-    // North wall (z=-24.8) — 9 paintings (avoid center arch)
+    // ══ GRAND HALL  (center 0,0,0  size 50×12×50) ══
+    // North wall z=-24.4 — skip center arch gap
     for (let i = 0; i < 9; i++) {
         const x = -20 + i * 5;
         if (Math.abs(x) > 4) painting('grand_hall', x, 4, -24.4, 0, `Đại Sảnh Bắc ${i + 1}`);
     }
-    // East wall (x=24.8) — 10 paintings
+    // East wall x=24.4 — skip doorway z≈0
     for (let i = 0; i < 10; i++) {
         const z = -20 + i * 4.5;
-        painting('grand_hall', 24.4, 4, z, -Math.PI / 2, `Đại Sảnh Đông ${i + 1}`);
+        if (Math.abs(z) > 4) painting('grand_hall', 24.4, 4, z, -Math.PI / 2, `Đại Sảnh Đông ${i + 1}`);
     }
-    // West wall (x=-24.8) — 9 paintings (skip doorway z≈0)
-    for (let i = 0; i < 9; i++) {
-        const z = -20 + i * 5;
-        if (Math.abs(z) > 5) painting('grand_hall', -24.4, 4, z, Math.PI / 2, `Đại Sảnh Tây ${i + 1}`);
-    }
-    // South wall (z=24.8) — 7 paintings (skip entrance/south door)
-    for (let i = 0; i < 7; i++) {
-        const x = -15 + i * 5;
-        if (Math.abs(x) > 5) painting('grand_hall', x, 4, 24.4, Math.PI, `Đại Sảnh Nam ${i + 1}`);
-    }
-    // Floor cases (center area) — 5 pedestals
-    for (let i = 0; i < 5; i++) {
-        caseSlot('grand_hall', -10 + i * 5, 0, `Đại Sảnh, Tủ ${i + 1}`);
-    }
-    // Total grand_hall so far: up to 40 ✓ (9+10+7+7+5 = 38-ish, pad with more north / upper row)
-    // Upper row north wall
-    painting('grand_hall', -15, 6.5, -24.4, 0, 'Đại Sảnh Bắc A');
-    painting('grand_hall', 15, 6.5, -24.4, 0, 'Đại Sảnh Bắc B');
-
-    // ══════════════════════════════
-    // PAINTING GALLERY  (center -65,0,0, size 26×10×60)
-    // ══════════════════════════════
-    // East wall (x=-65+13=-52, facing -x) — 20 paintings
-    for (let i = 0; i < 20; i++) {
-        const z = -65 + i * 3 + 27 * 0 - 28;
-        painting('painting_gallery', -52.3, i < 10 ? 3.5 : 6, -65 + (i % 10) * 6 - 26, Math.PI / 2, `Tranh Đông ${i + 1}`);
-    }
-    // West wall (x=-78, facing +x) — 20 paintings
-    for (let i = 0; i < 20; i++) {
-        painting('painting_gallery', -77.7, i < 10 ? 3.5 : 6, -65 + (i % 10) * 6 - 26, -Math.PI / 2, `Tranh Tây ${i + 1}`);
-    }
-
-    // ══════════════════════════════
-    // ARTIFACTS ROOM  (center 65,0,0, size 50×10×50)
-    // 40 glass cases on floor in 5×8 grid
-    // ══════════════════════════════
-    for (let row = 0; row < 5; row++) {
-        for (let col = 0; col < 8; col++) {
-            const x = 65 - 20 + col * 5.5;
-            const z = -18 + row * 9;
-            caseSlot('artifacts_room', x, z, `Hiện Vật ${row * 8 + col + 1}`);
-        }
-    }
-
-    // ══════════════════════════════
-    // SCULPTURE ROOM  (center 0,0,-65, size 50×10×50)
-    // ══════════════════════════════
-    // South wall paintings (z=-40) — 10
+    // West wall x=-24.4 — skip doorway z≈0
     for (let i = 0; i < 10; i++) {
-        const x = -21 + i * 4.7;
-        if (Math.abs(x) > 5) painting('sculpture_room', x, 4, -39.8, 0, `Điêu Khắc Tranh ${i + 1}`);
+        const z = -20 + i * 4.5;
+        if (Math.abs(z) > 4) painting('grand_hall', -24.4, 4, z, Math.PI / 2, `Đại Sảnh Tây ${i + 1}`);
     }
-    // Floor pedestals — 30
-    for (let row = 0; row < 5; row++) {
+    // South wall z=24.4 — skip doorway x≈0
+    for (let i = 0; i < 8; i++) {
+        const x = -17.5 + i * 5;
+        if (Math.abs(x) > 4) painting('grand_hall', x, 4, 24.4, Math.PI, `Đại Sảnh Nam ${i + 1}`);
+    }
+    // Floor cases
+    for (let i = 0; i < 5; i++) caseSlot('grand_hall', -10 + i * 5, 0, `Đại Sảnh Tủ ${i + 1}`);
+
+    // ══ PAINTING GALLERY  (center -38,0,0  size 26×12×60)
+    // Walls at x=-25 (east, shared with GH) and x=-51 (west)
+    for (let i = 0; i < 18; i++) {
+        painting('painting_gallery', -25.4, i < 9 ? 3.5 : 6.5,
+            -38 + (i % 9) * 6 - 24, Math.PI / 2, `Tranh Đông ${i + 1}`);
+    }
+    for (let i = 0; i < 18; i++) {
+        painting('painting_gallery', -50.6, i < 9 ? 3.5 : 6.5,
+            -38 + (i % 9) * 6 - 24, -Math.PI / 2, `Tranh Tây ${i + 1}`);
+    }
+
+    // ══ ARTIFACTS ROOM  (center 38,0,0  size 26×12×60)
+    // Walls at x=25 (west, shared with GH) and x=51 (east)
+    for (let row = 0; row < 4; row++) {
         for (let col = 0; col < 6; col++) {
-            caseSlot('sculpture_room', -15 + col * 6, -65 - 14 + row * 7, `Tượng ${row * 6 + col + 1}`);
+            caseSlot('artifacts_room', 27 + col * 4, -22 + row * 10, `Hiện Vật ${row * 6 + col + 1}`);
         }
     }
 
-    // ══════════════════════════════
-    // ARCHIVE ROOM  (center 0,0,65, size 50×10×50)
-    // 2×20 shelf arrangements on N and S walls
-    // ══════════════════════════════
-    // North wall (z=40) — 4 rows × 5 = 20 slots (shelf style)
-    for (let row = 0; row < 4; row++) {
-        for (let col = 0; col < 5; col++) {
-            painting('archive_room', -10 + col * 5, 2 + row * 2, 40.3, 0, `Lưu Trữ Bắc ${row * 5 + col + 1}`);
+    // ══ SCULPTURE ROOM  (center 0,0,-38  size 50×12×26)
+    // Walls at z=-25 (south, shared with GH) and z=-51 (north)
+    for (let i = 0; i < 8; i++) {
+        const x = -17.5 + i * 5;
+        if (Math.abs(x) > 4) painting('sculpture_room', x, 4, -25.4, 0, `Điêu Khắc Tranh ${i + 1}`);
+    }
+    for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 6; c++) {
+            caseSlot('sculpture_room', -12.5 + c * 5, -34 + r * 7, `Tượng ${r * 6 + c + 1}`);
         }
     }
-    // South wall (z=90) — 4 rows × 5 = 20
+
+    // ══ ARCHIVE ROOM  (center 0,0,38  size 50×12×26)
+    // Walls at z=25 (north, shared with GH) and z=51 (south)
     for (let row = 0; row < 4; row++) {
         for (let col = 0; col < 5; col++) {
-            painting('archive_room', -10 + col * 5, 2 + row * 2, 89.7, Math.PI, `Lưu Trữ Nam ${row * 5 + col + 1}`);
+            painting('archive_room', -10 + col * 5, 2 + row * 2, 25.4, 0, `Lưu Trữ Bắc ${row * 5 + col + 1}`);
+        }
+    }
+    for (let row = 0; row < 4; row++) {
+        for (let col = 0; col < 5; col++) {
+            painting('archive_room', -10 + col * 5, 2 + row * 2, 50.6, Math.PI, `Lưu Trữ Nam ${row * 5 + col + 1}`);
         }
     }
 
