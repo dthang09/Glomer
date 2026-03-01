@@ -7,7 +7,7 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 
 import { initFirebase, loadAllExhibits, subscribeToExhibits } from './firebase-db.js';
 import { buildExterior, exteriorClickables } from './palace.js';
-import { buildInterior, ROOM_DATA, ROOM_TELEPORTS, detectRoom, doorClickables, DOORWAYS } from './museum.js';
+import { buildInterior, ROOM_DATA, ROOM_TELEPORTS, detectRoom, doorClickables, DOORWAYS, columnPositions } from './museum.js';
 import { generateSlots, buildExhibitsFull, exhibitMeshes, exhibitMap, updateExhibitImage, setHoverGlow } from './exhibits.js';
 import { initFlipCard, showFlipCard, hideFlipCard } from './flipcard.js';
 import {
@@ -51,9 +51,9 @@ const raycaster = new THREE.Raycaster();
 raycaster.far = 8.0;
 const mouse2D = new THREE.Vector2(0, 0); // always screen center
 
-// Door raycaster (long-range — no far limit effectively)
+// Door raycaster (long-range)
 const doorRaycaster = new THREE.Raycaster();
-doorRaycaster.far = 22.0;
+doorRaycaster.far = 35.0;
 
 // Exterior raycaster (uses actual mouse position)
 const extRaycaster = new THREE.Raycaster();
@@ -412,10 +412,23 @@ function updateMovement() {
 
 function clampToRooms() {
     const pos = camera.position;
-    const DOOR_HALF = 3.8;  // half-width of doorway opening (DW=6 => 3)
-    const MARGIN = 0.45;    // player radius from wall
+    const DOOR_HALF = 3.5;  // half-width of doorway opening
+    const MARGIN = 0.45;    // player body radius from wall
 
-    // Find current room
+    // ── Column push-back collision ────────────────────────
+    const COL_R = 0.75; // column visual radius (0.5) + player (0.35) + margin
+    for (const [cpx, cpz] of columnPositions) {
+        const dx = pos.x - cpx, dz = pos.z - cpz;
+        const dd = dx * dx + dz * dz;
+        if (dd < COL_R * COL_R && dd > 0.0001) {
+            const d = Math.sqrt(dd);
+            const push = (COL_R - d) / d;
+            pos.x += dx * push;
+            pos.z += dz * push;
+        }
+    }
+
+    // ── Find which room the player is currently in ────────
     let curDef = null, curId = null;
     for (const [id, def] of Object.entries(ROOM_DATA)) {
         const [cx, , cz] = def.center;
@@ -424,23 +437,38 @@ function clampToRooms() {
             curDef = def; curId = id; break;
         }
     }
+
     if (!curDef) {
-        // Not near any room: snap toward nearest
+        // Check if player is inside a passage corridor between two rooms
+        const inCorridor = DOORWAYS.some(d => {
+            const isNS = d.wall === 'N' || d.wall === 'S';
+            // Corridor axis aligned to the wall type
+            return isNS
+                ? Math.abs(pos.x - d.cx) < DOOR_HALF  // N/S corridor: player within door width in X
+                : Math.abs(pos.z - d.cz) < DOOR_HALF; // E/W corridor: player within door width in Z
+        });
+        if (inCorridor) return; // allow free movement in passage
+
+        // Not near any room or corridor: snap gently toward nearest room
         let nearest = null, nearDist = Infinity;
         for (const [, def] of Object.entries(ROOM_DATA)) {
-            const d = Math.hypot(pos.x - def.center[0], pos.z - def.center[2]);
-            if (d < nearDist) { nearDist = d; nearest = def; }
+            const dd2 = Math.hypot(pos.x - def.center[0], pos.z - def.center[2]);
+            if (dd2 < nearDist) { nearDist = dd2; nearest = def; }
         }
-        if (nearest) { pos.x += (nearest.center[0] - pos.x) * 0.2; pos.z += (nearest.center[2] - pos.z) * 0.2; }
+        if (nearest) {
+            pos.x += (nearest.center[0] - pos.x) * 0.15;
+            pos.z += (nearest.center[2] - pos.z) * 0.15;
+        }
         return;
     }
 
+    // ── Hard wall clamp with doorway gaps ─────────────────
     const [cx, , cz] = curDef.center;
     const [W, , D] = curDef.size;
     const minX = cx - W / 2 + MARGIN, maxX = cx + W / 2 - MARGIN;
     const minZ = cz - D / 2 + MARGIN, maxZ = cz + D / 2 - MARGIN;
 
-    // West wall: allow gap if doorway there
+    // West wall
     if (pos.x < minX) {
         const gap = DOORWAYS.some(d =>
             ((d.wall === 'W' && d.roomA === curId) || (d.wall === 'E' && d.roomB === curId))

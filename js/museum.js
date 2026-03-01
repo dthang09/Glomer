@@ -20,6 +20,8 @@ export const DOORWAYS = [
 
 // Exported clickable door trigger meshes
 export const doorClickables = [];
+// Exported column XZ positions for collision
+export const columnPositions = [];
 
 // Teleport positions per room
 export const ROOM_TELEPORTS = {
@@ -281,6 +283,7 @@ function buildColumns(g, cx, cz, W, H, D, MARBLE, GOLD, GOLDD) {
     if (D > 40) [-D / 4, D / 4].forEach(dz => { positions.push([cx - W / 2 + 2.8, cz + dz]); positions.push([cx + W / 2 - 2.8, cz + dz]); });
 
     positions.forEach(([px, pz]) => {
+        columnPositions.push([px, pz]); // record for collision
         addMesh(g, new THREE.CylinderGeometry(0.40, 0.50, colH, 16), MARBLE, px, colH / 2, pz);
         addMesh(g, new THREE.CylinderGeometry(0.72, 0.40, 0.55, 16), GOLD, px, colH + 0.28, pz);
         addMesh(g, new THREE.BoxGeometry(1.05, 0.2, 1.05), GOLD, px, colH + 0.66, pz);
