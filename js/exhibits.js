@@ -24,49 +24,73 @@ export function generateSlots() {
     function painting(roomId, x, y, z, rotY, label) {
         slots.push({ id: `slot_${id++}`, roomId, type: 'painting', position: [x, y, z], rotY, label });
     }
-    function caseSlot(roomId, x, z, label) {
-        slots.push({ id: `slot_${id++}`, roomId, type: 'case', position: [x, 0, z], rotY: 0, label });
+    function caseSlot(roomId, x, y, z, label) {
+        slots.push({ id: `slot_${id++}`, roomId, type: 'case', position: [x, y, z], rotY: 0, label });
     }
-    // Grand Hall (0,0,0  50x50) - 30 exhibits
-    [-18,-12,-6,6,12,18].forEach((x,i) => painting('grand_hall', x, 4, -24.4, 0, `DS Bac ${i+1}`));
-    [-18,-12,12,18].forEach((z,i) => painting('grand_hall', 24.4, 4, z, -Math.PI/2, `DS Dong ${i+1}`));
-    [-18,-12,12,18].forEach((z,i) => painting('grand_hall', -24.4, 4, z, Math.PI/2, `DS Tay ${i+1}`));
-    [-18,-12,-6,6,12,18].forEach((x,i) => painting('grand_hall', x, 4, 24.4, Math.PI, `DS Nam ${i+1}`));
-    [-12,-6,0,6,12].forEach((x,i) => painting('grand_hall', x, 7.5, -24.4, 0, `DS Cao ${i+1}`));
-    [-8,-4,0,4,8].forEach((x,i) => caseSlot('grand_hall', x, -10, `DS Tu ${i+1}`));
-    // 6+4+4+6+5+5=30
 
-    // Painting Gallery (-42,0,0  34x50) - 30 exhibits
-    [-18,-12,-6,6,12,18].forEach((z,i) => painting('painting_gallery', -25.4, 4, z, Math.PI/2, `Tranh Dong ${i+1}`));
-    [-20,-14,-8,-2,2,8,14,20].forEach((z,i) => painting('painting_gallery', -58.6, i<4?3.5:6.5, z, -Math.PI/2, `Tranh Tay ${i+1}`));
-    [-14,-7,0,7,14].forEach((x,i) => painting('painting_gallery', x-42, 4, -24.4, Math.PI, `Tranh Nam ${i+1}`));
-    [-18,-6,6,18].forEach((z,i) => painting('painting_gallery', -25.4, 7.5, z, Math.PI/2, `Tranh Cao ${i+1}`));
-    [-12,-4,4,12].forEach((z,i) => caseSlot('painting_gallery', -42, z, `Gallery Tu ${i+1}`));
-    [-14,-7,7,14].forEach((x,i) => painting('painting_gallery', x-42, 4, 24.4, 0, `Tranh Bac ${i+1}`));
-    caseSlot('painting_gallery', -42, -8, 'Gallery Tu Extra');
-    caseSlot('painting_gallery', -42, 8, 'Gallery Tu Extra2');
-    // 6+8+5+4+4+4+1+1=33 -> trim 3: total = 30
+    // ── Tầng 1 ────────────────────────────────────────────────
+    // 1. Grand Hall (cy=0) - 15 exhibits
+    [-12,-4,4,12].forEach((x,i) => painting('grand_hall', x, 4, -24.4, 0, `ĐS Bắc ${i+1}`)); // 4
+    [-12,0,12].forEach((z,i) => painting('grand_hall', 24.4, 4, z, -Math.PI/2, `ĐS Đông ${i+1}`)); // 3
+    [-12,0,12].forEach((z,i) => painting('grand_hall', -24.4, 4, z, Math.PI/2, `ĐS Tây ${i+1}`)); // 3
+    [-12,0,12].forEach((x,i) => painting('grand_hall', x, 4, 24.4, Math.PI, `ĐS Nam ${i+1}`)); // 3
+    [-4,4].forEach((x,i) => caseSlot('grand_hall', x, 0, -10, `ĐS Tủ ${i+1}`)); // 2
+    // Total: 4+3+3+3+2 = 15
 
-    // Artifacts Room (42,0,0  34x50) - 30 floor cases
-    for (let r = 0; r < 5; r++)
-        for (let c = 0; c < 6; c++)
-            caseSlot('artifacts_room', 29+c*4.5, -20+r*9, `Hien Vat ${r*6+c+1}`);
+    // 2. Painting Gallery (center -42, cy=0) - 15 exhibits
+    [-15,0,15].forEach((z,i) => painting('painting_gallery', -25.4, 4, z, Math.PI/2, `Tranh Đông ${i+1}`)); // 3
+    [-15,0,15].forEach((z,i) => painting('painting_gallery', -58.6, 4, z, -Math.PI/2, `Tranh Tây ${i+1}`)); // 3
+    [-9,0,9].forEach((x,i) => painting('painting_gallery', x-42, 4, -24.4, Math.PI, `Tranh Nam ${i+1}`)); // 3
+    [-9,0,9].forEach((x,i) => painting('painting_gallery', x-42, 4, 24.4, 0, `Tranh Bắc ${i+1}`)); // 3
+    [-10,0,10].forEach((z,i) => caseSlot('painting_gallery', -42, 0, z, `Gallery Tủ ${i+1}`)); // 3
+    // Total: 3+3+3+3+3 = 15
 
-    // Sculpture Room (0,0,-42  50x34) - 30 exhibits
-    [-18,-12,-6,6,12,18].forEach((x,i) => painting('sculpture_room', x, 4, -25.4, 0, `DK Tranh ${i+1}`));
-    for (let r = 0; r < 4; r++)
-        for (let c = 0; c < 6; c++)
-            caseSlot('sculpture_room', -12.5+c*5, -42-11+r*7, `Tuong ${r*6+c+1}`);
-    // 6+24=30
+    // 3. Artifacts Room (center 42, cy=0) - 15 cases
+    for (let r = 0; r < 5; r++) {
+        for (let c = 0; c < 3; c++) {
+            caseSlot('artifacts_room', 35 + c*7, 0, -15 + r*7.5, `Hiện Vật ${r*3+c+1}`);
+        }
+    } // 15
 
-    // Archive Room (0,0,42  50x34) - 30 exhibits
-    for (let row = 0; row < 3; row++)
-        for (let col = 0; col < 5; col++)
-            painting('archive_room', -10+col*5, 2+row*3, 25.4, 0, `Luu Bac ${row*5+col+1}`);
-    for (let row = 0; row < 3; row++)
-        for (let col = 0; col < 5; col++)
-            painting('archive_room', -10+col*5, 2+row*3, 58.6, Math.PI, `Luu Nam ${row*5+col+1}`);
-    // 15+15=30
+    // 4. Sculpture Room (center 0, z=-42, cy=0) - 15 exhibits
+    [-15,0,15].forEach((x,i) => painting('sculpture_room', x, 4, -25.4, 0, `ĐK Tranh ${i+1}`)); // 3
+    for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 4; c++) {
+            caseSlot('sculpture_room', -10+c*6.6, 0, -48 + r*8, `Tượng ${r*4+c+1}`);
+        }
+    } // 3+12 = 15
+
+    // 5. Archive Room (center 0, z=42, cy=0) - 15 exhibits
+    for (let col = 0; col < 7; col++) painting('archive_room', -12+col*4, 4, 25.4, 0, `Lưu Bắc ${col+1}`); // 7
+    for (let col = 0; col < 8; col++) painting('archive_room', -14+col*4, 4, 58.6, Math.PI, `Lưu Nam ${col+1}`); // 8
+    // Total: 15
+
+    // ── Tầng 2 ────────────────────────────────────────────────
+    // 6. Royal Bedroom (center 0, z=-42, cy=12) - 15 exhibits
+    [-15,0,15].forEach((x,i) => painting('royal_bedroom', x, 16, -25.4, Math.PI, `HG Nam ${i+1}`)); // 3 (facing north)
+    [-15,-5,5,15].forEach((x,i) => painting('royal_bedroom', x, 16, -58.6, 0, `HG Bắc ${i+1}`)); // 4
+    [-47,-37].forEach((z,i) => painting('royal_bedroom', -24.4, 16, z, Math.PI/2, `HG Tây ${i+1}`)); // 2
+    [-47,-37].forEach((z,i) => painting('royal_bedroom', 24.4, 16, z, -Math.PI/2, `HG Đông ${i+1}`)); // 2
+    [-5,5].forEach((x,i) => caseSlot('royal_bedroom', x, 12, -45, `HG Tủ Bắc ${i+1}`)); // 2
+    [-5,5].forEach((x,i) => caseSlot('royal_bedroom', x, 12, -35, `HG Tủ Nam ${i+1}`)); // 2
+    // 3+4+2+2+2+2 = 15
+
+    // 7. Library (center -42, x=-42, cy=12) - 15 exhibits
+    [-15,0,15].forEach((z,i) => painting('library', -25.4, 16, z, Math.PI/2, `TV Đông ${i+1}`)); // 3
+    [-15,0,15].forEach((z,i) => painting('library', -58.6, 16, z, -Math.PI/2, `TV Tây ${i+1}`)); // 3
+    [-9,0,9].forEach((x,i) => painting('library', x-42, 16, -24.4, Math.PI, `TV Nam ${i+1}`)); // 3
+    [-9,0,9].forEach((x,i) => painting('library', x-42, 16, 24.4, 0, `TV Bắc ${i+1}`)); // 3
+    [-8,8].forEach((z,i) => caseSlot('library', -42, 12, z, `TV Tủ ${i+1}`)); // 2
+    caseSlot('library', -42, 12, 0, `TV Tủ Giữa`); // 1
+    // Total: 3+3+3+3+2+1 = 15
+
+    // 8. Armory (center 42, x=42, cy=12) - 15 exhibits
+    [-15,0,15].forEach((z,i) => painting('armory', 25.4, 16, z, -Math.PI/2, `VK Tây ${i+1}`)); // 3
+    [-15,0,15].forEach((z,i) => painting('armory', 58.6, 16, z, Math.PI/2, `VK Đông ${i+1}`)); // 3
+    [-9,0,9].forEach((x,i) => painting('armory', x+42, 16, -24.4, Math.PI, `VK Nam ${i+1}`)); // 3
+    [-9,0,9].forEach((x,i) => painting('armory', x+42, 16, 24.4, 0, `VK Bắc ${i+1}`)); // 3
+    [-10,0,10].forEach((z,i) => caseSlot('armory', 42, 12, z, `VK Tủ ${i+1}`)); // 3
+    // Total: 3+3+3+3+3 = 15
 
     return slots;
 }
