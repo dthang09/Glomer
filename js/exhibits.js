@@ -320,9 +320,9 @@ function addPaintingToScene(parent, slot) {
     const glow = new THREE.Mesh(new THREE.PlaneGeometry(frameW + 0.6, frameH + 0.6), glowMat);
     glow.position.z = -0.06;
 
-    // Clickable proxy (same plane)
+    // Clickable proxy (same plane) — transparent not invisible so raycaster can hit it
     const proxy = new THREE.Mesh(new THREE.PlaneGeometry(frameW + 0.26, frameH + 0.26),
-        new THREE.MeshBasicMaterial({ visible: false }));
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false }));
     proxy.position.z = 0.08;
     proxy.userData.slotId = slot.id;
     proxy.userData.slotDef = slot;
@@ -385,9 +385,9 @@ function addCaseToScene(parent, slot) {
     glow.rotation.x = -Math.PI / 2; glow.position.set(0, 1.16, 0);
     g.add(glow);
 
-    // Click proxy
+    // Click proxy — transparent cylinder (NOT visible:false, raycaster skips invisible meshes)
     const proxy = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 2.2, 16),
-        new THREE.MeshBasicMaterial({ visible: false }));
+        new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
     proxy.position.y = 1.1;
     proxy.userData.slotId = slot.id;
     proxy.userData.slotDef = slot;

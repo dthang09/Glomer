@@ -54,7 +54,11 @@ export function buildInterior(scene) {
     const GOLDD = mat(0xB89018, 0.14, 0.92);
     const MARBLE = mat(0xF0EBE0, 0.22, 0.05);
     const MARBLD = mat(0xD8D0B8, 0.28, 0.04);
-    const CRYSTAL = new THREE.MeshStandardMaterial({ color: 0xCCEEFF, roughness: 0, metalness: 0.15, transparent: true, opacity: 0.68 });
+    // Crystal material (depthWrite:false prevents sorting artifacts)
+    const CRYSTAL = new THREE.MeshStandardMaterial({
+        color: 0xCCEEFF, roughness: 0.05, metalness: 0.2,
+        transparent: true, opacity: 0.72, depthWrite: false
+    });
 
     // Build rooms
     Object.entries(ROOM_DATA).forEach(([id, def]) =>
@@ -128,28 +132,32 @@ function buildFloor(g, cx, cz, W, D, colA, colB) {
 
 // ── Ornate ceiling with fresco + gold coffers ─────────────────
 function buildCeiling(g, id, cx, cz, W, D, H, GOLD) {
-    // Base
+    // Base ceiling
     const ceilMat = mat(0xFAF4E0, 0.9);
     addMesh(g, new THREE.PlaneGeometry(W, D), ceilMat, cx, H, cz, Math.PI / 2);
 
-    // Central fresco oval
+    // Central fresco — polygonOffset prevents z-fighting with base ceiling
     const frescoMat = makeFrescoMat(id);
-    addMesh(g, new THREE.PlaneGeometry(W * 0.5, D * 0.5), frescoMat, cx, H - 0.01, cz, Math.PI / 2);
+    frescoMat.polygonOffset = true;
+    frescoMat.polygonOffsetFactor = -2;
+    frescoMat.polygonOffsetUnits = -2;
+    addMesh(g, new THREE.PlaneGeometry(W * 0.5, D * 0.5), frescoMat, cx, H, cz, Math.PI / 2);
 
-    // Gold coffer grid
+    // Gold coffer grid (box strips—no z-fighting issue)
     const coffW = W / 4, coffD = D / 4;
     const goldCoffer = mat(0xD4A820, 0.1, 0.92, 0x906000, 0.18);
     for (let ci = -1; ci <= 1; ci++) {
         for (let ri = -1; ri <= 1; ri++) {
             if (ci === 0 && ri === 0) continue;
-            // Recessed panel
-            addMesh(g, new THREE.PlaneGeometry(coffW - 0.5, coffD - 0.5), mat(0xF5EDD8, 0.88), cx + ci * coffW, H - 0.01, cz + ri * coffD, Math.PI / 2);
-            // Border strips
+            // Recessed panel with polygonOffset
+            const panM = mat(0xF5EDD8, 0.88);
+            panM.polygonOffset = true; panM.polygonOffsetFactor = -1; panM.polygonOffsetUnits = -1;
+            addMesh(g, new THREE.PlaneGeometry(coffW - 0.5, coffD - 0.5), panM, cx + ci * coffW, H, cz + ri * coffD, Math.PI / 2);
+            // Border strips (box geometry, no z-fighting)
             addMesh(g, new THREE.BoxGeometry(coffW, 0.08, 0.22), goldCoffer, cx + ci * coffW, H - 0.05, cz + ri * coffD - coffD / 2);
             addMesh(g, new THREE.BoxGeometry(coffW, 0.08, 0.22), goldCoffer, cx + ci * coffW, H - 0.05, cz + ri * coffD + coffD / 2);
             addMesh(g, new THREE.BoxGeometry(0.22, 0.08, coffD), goldCoffer, cx + ci * coffW - coffW / 2, H - 0.05, cz + ri * coffD);
             addMesh(g, new THREE.BoxGeometry(0.22, 0.08, coffD), goldCoffer, cx + ci * coffW + coffW / 2, H - 0.05, cz + ri * coffD);
-            // Corner rosette
             addMesh(g, new THREE.SphereGeometry(0.12, 8, 6), goldCoffer, cx + ci * coffW, H - 0.06, cz + ri * coffD);
         }
     }
@@ -317,8 +325,8 @@ function addChandelier(g, x, y, z, GOLD, CRYSTAL) {
             arm.rotation.set(0, ang, Math.PI / 2);
             arm.position.set((x + ax) / 2, ay, (z + az) / 2);
             g.add(arm);
-            // crystal drop
-            addMesh(g, new THREE.OctahedronGeometry(0.09 + Math.random() * 0.05), CRYSTAL, ax, ay - 0.3 - Math.random() * 0.35, az);
+            // Crystal drop — use SphereGeometry (OctahedronGeometry causes spikes)
+            addMesh(g, new THREE.SphereGeometry(0.08 + Math.random() * 0.05, 6, 5), CRYSTAL, ax, ay - 0.28 - Math.random() * 0.3, az);
             // candle
             addMesh(g, new THREE.CylinderGeometry(0.035, 0.035, 0.22, 6), mat(0xFFFAF0), ax, ay + 0.11, az);
             // flame
@@ -329,13 +337,13 @@ function addChandelier(g, x, y, z, GOLD, CRYSTAL) {
     // Pendant crystal strands
     for (let s = 0; s < 28; s++) {
         const ang = (s / 28) * Math.PI * 2, r = 1.5 + Math.random() * 2.2;
-        addMesh(g, new THREE.OctahedronGeometry(0.075 + Math.random() * 0.065), CRYSTAL,
+        addMesh(g, new THREE.SphereGeometry(0.075 + Math.random() * 0.065, 6, 5), CRYSTAL,
             x + Math.cos(ang) * r, y - 2.6 - Math.random() * 0.9, z + Math.sin(ang) * r);
     }
     // Lights
-    const pt = new THREE.PointLight(0xFFE890, 3.8, 48, 1.5);
+    const pt = new THREE.PointLight(0xFFE890, 3.0, 45, 1.5);
     pt.position.set(x, y - 1.5, z); g.add(pt);
-    const fill = new THREE.PointLight(0xFFCC50, 0.8, 26, 2);
+    const fill = new THREE.PointLight(0xFFCC50, 0.7, 24, 2);
     fill.position.set(x, y - 3.0, z); g.add(fill);
 }
 
@@ -384,22 +392,18 @@ function buildDoorway(g, d, GOLD, GOLDD, MARBLE) {
             isNS ? cx + side * 0.45 : cx, 1.05, isNS ? cz : cz + side * 0.45);
     });
 
-    // INVISIBLE click trigger — DoubleSide so works from both rooms
+    // INVISIBLE click trigger — transparent (NOT visible:false) so raycaster can hit it
     const trigGeo = new THREE.PlaneGeometry(DW - 1.0, DH - 1.5);
-    const trigMat = new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide });
-    // roomA→roomB trigger (positioned 0.5 inside roomA side)
+    const trigMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
     const trig = new THREE.Mesh(trigGeo, trigMat.clone());
     trig.position.set(cx, DH / 2 - 0.5, cz);
     if (!isNS) trig.rotation.y = Math.PI / 2;
-    trig.userData.targetRoom = d.roomB;
-    trig.userData.isDoor = true;
+    trig.userData.targetRoom = d.roomB; trig.userData.isDoor = true;
     g.add(trig); doorClickables.push(trig);
-    // roomB→roomA trigger (same position, opposite target)
     const trig2 = new THREE.Mesh(trigGeo.clone(), trigMat.clone());
     trig2.position.set(cx, DH / 2 - 0.5, cz);
     if (!isNS) trig2.rotation.y = Math.PI / 2;
-    trig2.userData.targetRoom = d.roomA;
-    trig2.userData.isDoor = true;
+    trig2.userData.targetRoom = d.roomA; trig2.userData.isDoor = true;
     g.add(trig2); doorClickables.push(trig2);
 }
 
