@@ -4,10 +4,10 @@ import * as THREE from 'three';
 // ── Room definitions ─────────────────────────────────────────
 export const ROOM_DATA = {
     grand_hall: { name: 'Đại Sảnh', center: [0, 0, 0], size: [50, 12, 50] },
-    painting_gallery: { name: 'Phòng Tranh', center: [-38, 0, 0], size: [26, 12, 60] },
-    artifacts_room: { name: 'Phòng Hiện Vật', center: [38, 0, 0], size: [26, 12, 60] },
-    sculpture_room: { name: 'Phòng Điêu Khắc', center: [0, 0, -38], size: [50, 12, 26] },
-    archive_room: { name: 'Phòng Lưu Trữ', center: [0, 0, 38], size: [50, 12, 26] },
+    painting_gallery: { name: 'Phòng Tranh', center: [-42, 0, 0], size: [34, 12, 50] },
+    artifacts_room: { name: 'Phòng Hiện Vật', center: [42, 0, 0], size: [34, 12, 50] },
+    sculpture_room: { name: 'Phòng Điêu Khắc', center: [0, 0, -42], size: [50, 12, 34] },
+    archive_room: { name: 'Phòng Lưu Trữ', center: [0, 0, 42], size: [50, 12, 34] },
 };
 
 // Doorway portal connections
@@ -26,10 +26,10 @@ export const columnPositions = [];
 // Teleport positions per room
 export const ROOM_TELEPORTS = {
     grand_hall: [0, 1.7, 8],
-    painting_gallery: [-38, 1.7, 0],
-    artifacts_room: [38, 1.7, 0],
-    sculpture_room: [0, 1.7, -38],
-    archive_room: [0, 1.7, 38],
+    painting_gallery: [-42, 1.7, 0],
+    artifacts_room: [42, 1.7, 0],
+    sculpture_room: [0, 1.7, -42],
+    archive_room: [0, 1.7, 42],
 };
 
 // ── Helper: create MeshStandardMaterial ─────────────────────
@@ -384,7 +384,7 @@ function buildDoorway(g, d, GOLD, GOLDD, MARBLE) {
         const pz = isNS ? cz : cz + side * (DW / 4);
         const wDoor = isNS ? DW / 2 - 0.12 : 0.2;
         const dDoor = isNS ? 0.2 : DW / 2 - 0.12;
-        addMesh(g, new THREE.BoxGeometry(wDoor, DH - 0.5, dDoor), mat(0x1A3A20, 0.4, 0.06), px, DH / 2 - 0.25, pz);
+        addMesh(g, new THREE.BoxGeometry(wDoor, DH - 0.5, dDoor), mat(0x4A2E1A, 0.55, 0.05), px, DH / 2 - 0.25, pz);
         // Inset gold
         addMesh(g, new THREE.BoxGeometry(wDoor * 0.75, DH * 0.35, isNS ? 0.12 : dDoor * 0.75),
             mat(0xD4A820, 0.1, 0.9, 0xA07808, 0.2), px, DH * 0.65, pz);
