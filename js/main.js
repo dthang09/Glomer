@@ -7,7 +7,7 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 
 import { initFirebase, loadAllExhibits, subscribeToExhibits } from './firebase-db.js';
 import { buildExterior, exteriorClickables } from './palace.js';
-import { buildInterior, ROOM_DATA, ROOM_TELEPORTS, detectRoom, doorClickables } from './museum.js';
+import { buildInterior, ROOM_DATA, ROOM_TELEPORTS, detectRoom, doorClickables, DOORWAYS } from './museum.js';
 import { generateSlots, buildExhibitsFull, exhibitMeshes, exhibitMap, updateExhibitImage, setHoverGlow } from './exhibits.js';
 import { initFlipCard, showFlipCard, hideFlipCard } from './flipcard.js';
 import {
@@ -46,10 +46,14 @@ const keys = { w: false, a: false, s: false, d: false };
 const SPEED = 6.0;
 const PLAYER_HEIGHT = 1.7;
 
-// Raycaster
+// Raycaster (short-range: exhibits only)
 const raycaster = new THREE.Raycaster();
-raycaster.far = 12.0; // reach exhibits and doors
+raycaster.far = 8.0;
 const mouse2D = new THREE.Vector2(0, 0); // always screen center
+
+// Door raycaster (long-range — no far limit effectively)
+const doorRaycaster = new THREE.Raycaster();
+doorRaycaster.far = 22.0;
 
 // Exterior raycaster (uses actual mouse position)
 const extRaycaster = new THREE.Raycaster();
@@ -284,19 +288,19 @@ function checkExteriorClick() {
 let hoveredSlotId = null;
 
 function checkInteriorClick() {
+    // 1. Exhibit check (short range, takes priority for upload flow)
     raycaster.setFromCamera(mouse2D, camera);
-    // Check doors first
-    const doorHits = raycaster.intersectObjects(doorClickables, false);
-    if (doorHits.length > 0) {
-        const target = doorHits[0].object.userData.targetRoom;
-        if (target) { teleportToRoom(target); return; }
-    }
-    // Then exhibits
     const hits = raycaster.intersectObjects(exhibitMeshes, false);
     if (hits.length > 0) {
-        const hit = hits[0].object;
-        const slotId = hit.userData.slotId;
-        if (slotId) openExhibit(slotId);
+        const slotId = hits[0].object.userData.slotId;
+        if (slotId) { openExhibit(slotId); return; }
+    }
+    // 2. Door check (long range, only if no exhibit hit)
+    doorRaycaster.setFromCamera(mouse2D, camera);
+    const doorHits = doorRaycaster.intersectObjects(doorClickables, false);
+    if (doorHits.length > 0) {
+        const target = doorHits[0].object.userData.targetRoom;
+        if (target) teleportToRoom(target);
     }
 }
 
@@ -335,19 +339,9 @@ function updateHover() {
         if (hoveredSlotId) { setHoverGlow(hoveredSlotId, false); hideTooltip(); hoveredSlotId = null; }
         return;
     }
+
+    // 1. Exhibit hover (short range, takes priority)
     raycaster.setFromCamera(mouse2D, camera);
-
-    // Door hover
-    const doorHits = raycaster.intersectObjects(doorClickables, false);
-    if (doorHits.length > 0) {
-        const target = doorHits[0].object.userData.targetRoom;
-        const roomName = ROOM_DATA[target]?.name || target;
-        showTooltip(`🚪 ${roomName} — Click để vào`);
-        if (hoveredSlotId) { setHoverGlow(hoveredSlotId, false); hoveredSlotId = null; }
-        return;
-    }
-
-    // Exhibit hover
     const hits = raycaster.intersectObjects(exhibitMeshes, false);
     const newHover = hits.length > 0 ? hits[0].object.userData.slotId : null;
     if (newHover !== hoveredSlotId) {
@@ -357,9 +351,22 @@ function updateHover() {
             setHoverGlow(hoveredSlotId, true);
             const label = exhibitMap[hoveredSlotId]?.slotDef?.label || hoveredSlotId;
             showTooltip(`🖼 ${label} — Click để xem`);
+            return;
         } else {
             hideTooltip();
         }
+    }
+    if (hoveredSlotId) return; // already showing exhibit tooltip
+
+    // 2. Door hover (long range)
+    doorRaycaster.setFromCamera(mouse2D, camera);
+    const doorHits = doorRaycaster.intersectObjects(doorClickables, false);
+    if (doorHits.length > 0) {
+        const target = doorHits[0].object.userData.targetRoom;
+        const roomName = ROOM_DATA[target]?.name || target;
+        showTooltip(`🚪 ${roomName} — Click để vào`);
+    } else {
+        hideTooltip();
     }
 }
 
@@ -404,28 +411,62 @@ function updateMovement() {
 }
 
 function clampToRooms() {
-    // Check against all rooms + passages; simple: clamp to nearest room boundary
-    for (const [, def] of Object.entries(ROOM_DATA)) {
+    const pos = camera.position;
+    const DOOR_HALF = 3.8;  // half-width of doorway opening (DW=6 => 3)
+    const MARGIN = 0.45;    // player radius from wall
+
+    // Find current room
+    let curDef = null, curId = null;
+    for (const [id, def] of Object.entries(ROOM_DATA)) {
         const [cx, , cz] = def.center;
         const [W, , D] = def.size;
-        const margin = 0.5;
-        const px = camera.position.x, pz = camera.position.z;
-
-        if (Math.abs(px - cx) < W / 2 + 2 && Math.abs(pz - cz) < D / 2 + 2) {
-            // In or near a room: let it be (simplified — no hard wall collisions)
-            return;
+        if (Math.abs(pos.x - cx) < W / 2 + 1.5 && Math.abs(pos.z - cz) < D / 2 + 1.5) {
+            curDef = def; curId = id; break;
         }
     }
-    // Not near any room: pull back toward nearest room
-    const pos = camera.position;
-    let nearest = null, nearDist = Infinity;
-    for (const [, def] of Object.entries(ROOM_DATA)) {
-        const d = Math.hypot(pos.x - def.center[0], pos.z - def.center[2]);
-        if (d < nearDist) { nearDist = d; nearest = def; }
+    if (!curDef) {
+        // Not near any room: snap toward nearest
+        let nearest = null, nearDist = Infinity;
+        for (const [, def] of Object.entries(ROOM_DATA)) {
+            const d = Math.hypot(pos.x - def.center[0], pos.z - def.center[2]);
+            if (d < nearDist) { nearDist = d; nearest = def; }
+        }
+        if (nearest) { pos.x += (nearest.center[0] - pos.x) * 0.2; pos.z += (nearest.center[2] - pos.z) * 0.2; }
+        return;
     }
-    if (nearest) {
-        pos.x += (nearest.center[0] - pos.x) * 0.05;
-        pos.z += (nearest.center[2] - pos.z) * 0.05;
+
+    const [cx, , cz] = curDef.center;
+    const [W, , D] = curDef.size;
+    const minX = cx - W / 2 + MARGIN, maxX = cx + W / 2 - MARGIN;
+    const minZ = cz - D / 2 + MARGIN, maxZ = cz + D / 2 - MARGIN;
+
+    // West wall: allow gap if doorway there
+    if (pos.x < minX) {
+        const gap = DOORWAYS.some(d =>
+            ((d.wall === 'W' && d.roomA === curId) || (d.wall === 'E' && d.roomB === curId))
+            && Math.abs(pos.z - d.cz) < DOOR_HALF);
+        if (!gap) pos.x = minX;
+    }
+    // East wall
+    if (pos.x > maxX) {
+        const gap = DOORWAYS.some(d =>
+            ((d.wall === 'E' && d.roomA === curId) || (d.wall === 'W' && d.roomB === curId))
+            && Math.abs(pos.z - d.cz) < DOOR_HALF);
+        if (!gap) pos.x = maxX;
+    }
+    // North wall
+    if (pos.z < minZ) {
+        const gap = DOORWAYS.some(d =>
+            ((d.wall === 'N' && d.roomA === curId) || (d.wall === 'S' && d.roomB === curId))
+            && Math.abs(pos.x - d.cx) < DOOR_HALF);
+        if (!gap) pos.z = minZ;
+    }
+    // South wall
+    if (pos.z > maxZ) {
+        const gap = DOORWAYS.some(d =>
+            ((d.wall === 'S' && d.roomA === curId) || (d.wall === 'N' && d.roomB === curId))
+            && Math.abs(pos.x - d.cx) < DOOR_HALF);
+        if (!gap) pos.z = maxZ;
     }
 }
 

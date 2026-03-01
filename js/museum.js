@@ -11,7 +11,7 @@ export const ROOM_DATA = {
 };
 
 // Doorway portal connections
-const DOORWAYS = [
+export const DOORWAYS = [
     { roomA: 'grand_hall', roomB: 'painting_gallery', wall: 'W', cx: -25, cz: 0 },
     { roomA: 'grand_hall', roomB: 'artifacts_room', wall: 'E', cx: 25, cz: 0 },
     { roomA: 'grand_hall', roomB: 'sculpture_room', wall: 'N', cx: 0, cz: -25 },
@@ -203,9 +203,12 @@ function buildWalls(g, cx, cz, W, H, D, wc, GOLD, MARBLE, MARBLD) {
         wall.position.set(...w.pos); wall.rotation.set(...w.rot);
         wall.receiveShadow = true; g.add(wall);
 
-        // Wainscot (lower panel)
-        const wain = new THREE.Mesh(new THREE.PlaneGeometry(w.len, 2.0), wainMat);
+        // Wainscot (lower panel) — offset +0.008 inward to avoid z-fighting
+        const wainMat2 = mat(mixColor(wc, 0x000000, 0.18), 0.88, 0.02);
+        wainMat2.polygonOffset = true; wainMat2.polygonOffsetFactor = -1; wainMat2.polygonOffsetUnits = -4;
+        const wain = new THREE.Mesh(new THREE.PlaneGeometry(w.len, 2.0), wainMat2);
         wain.position.set(w.pos[0], 1.0, w.pos[2]); wain.rotation.set(...w.rot);
+        const wOff = new THREE.Vector3(0, 0, 0.008); wOff.applyEuler(wain.rotation); wain.position.add(wOff);
         g.add(wain);
 
         // Field panels
@@ -213,7 +216,9 @@ function buildWalls(g, cx, cz, W, H, D, wc, GOLD, MARBLE, MARBLD) {
         const pW = (w.len - 0.5) / pCount;
         for (let pi = 0; pi < pCount; pi++) {
             const pOffset = -w.len / 2 + pi * pW + pW / 2 + 0.25;
-            const panel = new THREE.Mesh(new THREE.PlaneGeometry(pW - 0.7, H - 3.5), panelMat);
+            const panelMat2 = mat(mixColor(wc, 0xFFFFFF, 0.15), 0.76, 0.02);
+            panelMat2.polygonOffset = true; panelMat2.polygonOffsetFactor = -2; panelMat2.polygonOffsetUnits = -8;
+            const panel = new THREE.Mesh(new THREE.PlaneGeometry(pW - 0.7, H - 3.5), panelMat2);
             panel.position.set(w.pos[0], H / 2 + 0.3, w.pos[2]);
             panel.rotation.set(...w.rot);
             // Offset along wall local X
@@ -379,18 +384,23 @@ function buildDoorway(g, d, GOLD, GOLDD, MARBLE) {
             isNS ? cx + side * 0.45 : cx, 1.05, isNS ? cz : cz + side * 0.45);
     });
 
-    // Invisible click trigger (bidirectional — two meshes)
-    const trigGeo = new THREE.PlaneGeometry(DW - 0.8, DH - 1.0);
+    // INVISIBLE click trigger — DoubleSide so works from both rooms
+    const trigGeo = new THREE.PlaneGeometry(DW - 1.0, DH - 1.5);
     const trigMat = new THREE.MeshBasicMaterial({ visible: false, side: THREE.DoubleSide });
-    [d.roomB, d.roomA].forEach((target, ti) => {
-        const trig = new THREE.Mesh(trigGeo.clone(), trigMat.clone());
-        trig.position.set(cx, DH / 2 - 0.3, cz);
-        if (!isNS) trig.rotation.y = Math.PI / 2;
-        trig.userData.targetRoom = target;
-        trig.userData.isDoor = true;
-        g.add(trig);
-        doorClickables.push(trig);
-    });
+    // roomA→roomB trigger (positioned 0.5 inside roomA side)
+    const trig = new THREE.Mesh(trigGeo, trigMat.clone());
+    trig.position.set(cx, DH / 2 - 0.5, cz);
+    if (!isNS) trig.rotation.y = Math.PI / 2;
+    trig.userData.targetRoom = d.roomB;
+    trig.userData.isDoor = true;
+    g.add(trig); doorClickables.push(trig);
+    // roomB→roomA trigger (same position, opposite target)
+    const trig2 = new THREE.Mesh(trigGeo.clone(), trigMat.clone());
+    trig2.position.set(cx, DH / 2 - 0.5, cz);
+    if (!isNS) trig2.rotation.y = Math.PI / 2;
+    trig2.userData.targetRoom = d.roomA;
+    trig2.userData.isDoor = true;
+    g.add(trig2); doorClickables.push(trig2);
 }
 
 // ── Room-specific decorations ─────────────────────────────────
