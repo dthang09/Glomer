@@ -7,7 +7,7 @@ import { PointerLockControls } from 'three/addons/controls/PointerLockControls.j
 
 import { initFirebase, loadAllExhibits, subscribeToExhibits } from './firebase-db.js';
 import { buildExterior, exteriorClickables } from './palace.js';
-import { buildInterior, ROOM_DATA, ROOM_TELEPORTS, detectRoom } from './museum.js';
+import { buildInterior, ROOM_DATA, ROOM_TELEPORTS, detectRoom, doorClickables } from './museum.js';
 import { generateSlots, buildExhibitsFull, exhibitMeshes, exhibitMap, updateExhibitImage, setHoverGlow } from './exhibits.js';
 import { initFlipCard, showFlipCard, hideFlipCard } from './flipcard.js';
 import {
@@ -48,7 +48,7 @@ const PLAYER_HEIGHT = 1.7;
 
 // Raycaster
 const raycaster = new THREE.Raycaster();
-raycaster.far = 6.0; // only interact with nearby exhibits
+raycaster.far = 12.0; // reach exhibits and doors
 const mouse2D = new THREE.Vector2(0, 0); // always screen center
 
 // Exterior raycaster (uses actual mouse position)
@@ -65,6 +65,9 @@ async function init() {
 
     // Build interior
     buildInterior(intScene);
+    // Hide room nav buttons — rooms connected via clickable doors
+    const roomNav = document.getElementById('room-nav');
+    if (roomNav) roomNav.style.display = 'none';
 
     // Build exhibits
     const slots = generateSlots();
@@ -282,6 +285,13 @@ let hoveredSlotId = null;
 
 function checkInteriorClick() {
     raycaster.setFromCamera(mouse2D, camera);
+    // Check doors first
+    const doorHits = raycaster.intersectObjects(doorClickables, false);
+    if (doorHits.length > 0) {
+        const target = doorHits[0].object.userData.targetRoom;
+        if (target) { teleportToRoom(target); return; }
+    }
+    // Then exhibits
     const hits = raycaster.intersectObjects(exhibitMeshes, false);
     if (hits.length > 0) {
         const hit = hits[0].object;
@@ -326,8 +336,19 @@ function updateHover() {
         return;
     }
     raycaster.setFromCamera(mouse2D, camera);
-    const hits = raycaster.intersectObjects(exhibitMeshes, false);
 
+    // Door hover
+    const doorHits = raycaster.intersectObjects(doorClickables, false);
+    if (doorHits.length > 0) {
+        const target = doorHits[0].object.userData.targetRoom;
+        const roomName = ROOM_DATA[target]?.name || target;
+        showTooltip(`🚪 ${roomName} — Click để vào`);
+        if (hoveredSlotId) { setHoverGlow(hoveredSlotId, false); hoveredSlotId = null; }
+        return;
+    }
+
+    // Exhibit hover
+    const hits = raycaster.intersectObjects(exhibitMeshes, false);
     const newHover = hits.length > 0 ? hits[0].object.userData.slotId : null;
     if (newHover !== hoveredSlotId) {
         if (hoveredSlotId) setHoverGlow(hoveredSlotId, false);
