@@ -1,4 +1,4 @@
-// js/main.js
+﻿// js/main.js
 // ══════════════════════════════════════════════════════════
 //  Glomer Palace Museum — Three.js Entry Point
 // ══════════════════════════════════════════════════════════
@@ -396,10 +396,60 @@ function updateMovement() {
     }
 
     // Keep player at floor level
-    camera.position.y = PLAYER_HEIGHT;
+    // Calculate base Y floor level based on position
+    let targetBaseY = 0;
+    const pos = camera.position;
+
+    // Check if in stairwell area (inside grand_hall south)
+    const onStairs = (pos.z > 13.5 && pos.z < 25.5 && Math.abs(pos.x) < 15.5);
+    if (onStairs) {
+        if (pos.z >= 14 && pos.z <= 22 && Math.abs(pos.x) <= 4.5) {
+            // Central flight: z=14 (y=0) to z=22 (y=6)
+            targetBaseY = Math.max(0, Math.min(6, (pos.z - 14) / 8 * 6));
+        } else if (pos.z > 22 && pos.z <= 25 && Math.abs(pos.x) <= 4.0) {
+            // Landing
+            targetBaseY = 6;
+        } else if (pos.z >= 21 && pos.z <= 25 && pos.x < -4 && pos.x >= -15) {
+            // Left flight: x=-4 (y=6) to x=-15 (y=12)
+            targetBaseY = Math.max(6, Math.min(12, 6 + (-4 - pos.x) / 11 * 6));
+        } else if (pos.z >= 21 && pos.z <= 25 && pos.x > 4 && pos.x <= 15) {
+            // Right flight: x=4 (y=6) to x=15 (y=12)
+            targetBaseY = Math.max(6, Math.min(12, 6 + (pos.x - 4) / 11 * 6));
+        } else {
+            // Fallback for weird gaps near stairs: keep previous elevation 
+            targetBaseY = camera.position.y - PLAYER_HEIGHT;
+        }
+    } else {
+        // Flat floor check
+        let curDef = null;
+        // Priority to rooms matching current height
+        const curY = camera.position.y - PLAYER_HEIGHT;
+        for (const [id, def] of Object.entries(ROOM_DATA)) {
+            const [cx, cy = 0, cz] = def.center;
+            const [W, H, D] = def.size;
+            if (Math.abs(pos.x - cx) < W / 2 + 1.5 && Math.abs(pos.z - cz) < D / 2 + 1.5) {
+                // If it's grand_hall, height is 24, so it covers both floors!
+                if (id === 'grand_hall') {
+                    if (curY > 8) targetBaseY = 12; else targetBaseY = 0;
+                    curDef = def;
+                } else if (Math.abs(curY - cy) < 4) { // matching floor level
+                    curDef = def;
+                    targetBaseY = cy;
+                    break;
+                }
+            }
+        }
+        if (!curDef) targetBaseY = Math.round((camera.position.y - PLAYER_HEIGHT) / 12) * 12; // default
+    }
+
+    // Smooth Y transition for stairs
+    const currentBaseY = camera.position.y - PLAYER_HEIGHT;
+    const newBaseY = currentBaseY + (targetBaseY - currentBaseY) * 0.2; // lerp smooth
+    camera.position.y = newBaseY + PLAYER_HEIGHT;
+    const isUpper = (newBaseY > 8);
 
     // Room boundary clamping
-    clampToRooms();
+    clampToRooms(isUpper);
 
     // Update room label
     const room = detectRoom(camera.position.x, camera.position.z);
@@ -410,13 +460,13 @@ function updateMovement() {
     }
 }
 
-function clampToRooms() {
+function clampToRooms(isUpper) {
     const pos = camera.position;
     const DOOR_HALF = 3.5;  // half-width of doorway opening
-    const MARGIN = 0.45;    // player body radius from wall
+    const MARGIN = 0.5;    // player body radius from wall
 
-    // ── Column push-back collision ────────────────────────
-    const COL_R = 0.75; // column visual radius (0.5) + player (0.35) + margin
+    // Column push-back
+    const COL_R = 0.75;
     for (const [cpx, cpz] of columnPositions) {
         const dx = pos.x - cpx, dz = pos.z - cpz;
         const dd = dx * dx + dz * dz;
@@ -428,76 +478,89 @@ function clampToRooms() {
         }
     }
 
-    // ── Find which room the player is currently in ────────
+    // Find current room
     let curDef = null, curId = null;
+    const expectedY = isUpper ? 12 : 0;
     for (const [id, def] of Object.entries(ROOM_DATA)) {
-        const [cx, , cz] = def.center;
+        const [cx, cy = 0, cz] = def.center;
         const [W, , D] = def.size;
-        if (Math.abs(pos.x - cx) < W / 2 + 1.5 && Math.abs(pos.z - cz) < D / 2 + 1.5) {
+
+        // Grand hall spans both floors
+        const yMatch = (id === 'grand_hall') ? true : (Math.abs(cy - expectedY) < 1.0);
+
+        if (yMatch && Math.abs(pos.x - cx) < W / 2 + 1.5 && Math.abs(pos.z - cz) < D / 2 + 1.5) {
             curDef = def; curId = id; break;
         }
     }
 
     if (!curDef) {
-        // Check if player is inside a passage corridor between two rooms
-        const inCorridor = DOORWAYS.some(d => {
-            const isNS = d.wall === 'N' || d.wall === 'S';
-            // Corridor axis aligned to the wall type
-            return isNS
-                ? Math.abs(pos.x - d.cx) < DOOR_HALF  // N/S corridor: player within door width in X
-                : Math.abs(pos.z - d.cz) < DOOR_HALF; // E/W corridor: player within door width in Z
-        });
-        if (inCorridor) return; // allow free movement in passage
+        // Are we on stairs?
+        if (pos.z > 13.5 && pos.z < 25.5 && Math.abs(pos.x) < 15.5) return; // Free move on stairs
 
-        // Not near any room or corridor: snap gently toward nearest room
-        let nearest = null, nearDist = Infinity;
-        for (const [, def] of Object.entries(ROOM_DATA)) {
-            const dd2 = Math.hypot(pos.x - def.center[0], pos.z - def.center[2]);
-            if (dd2 < nearDist) { nearDist = dd2; nearest = def; }
-        }
-        if (nearest) {
-            pos.x += (nearest.center[0] - pos.x) * 0.15;
-            pos.z += (nearest.center[2] - pos.z) * 0.15;
-        }
-        return;
+        const inCorridor = DOORWAYS.some(d => {
+            const dy = d.cy || 0;
+            if (Math.abs(dy - expectedY) > 1.0) return false;
+            const isNS = d.wall === 'N' || d.wall === 'S';
+            return isNS ? Math.abs(pos.x - d.cx) < DOOR_HALF : Math.abs(pos.z - d.cz) < DOOR_HALF;
+        });
+        if (inCorridor) return;
+        return; // gentle fallback if lost
     }
 
-    // ── Hard wall clamp with doorway gaps ─────────────────
     const [cx, , cz] = curDef.center;
     const [W, , D] = curDef.size;
-    const minX = cx - W / 2 + MARGIN, maxX = cx + W / 2 - MARGIN;
-    const minZ = cz - D / 2 + MARGIN, maxZ = cz + D / 2 - MARGIN;
 
-    // West wall
-    if (pos.x < minX) {
-        const gap = DOORWAYS.some(d =>
-            ((d.wall === 'W' && d.roomA === curId) || (d.wall === 'E' && d.roomB === curId))
-            && Math.abs(pos.z - d.cz) < DOOR_HALF);
-        if (!gap) pos.x = minX;
+    // Custom balcony railings for Grand Hall Floor 2
+    if (curId === 'grand_hall' && isUpper) {
+        // Balcony layout: West(x:-25 to -15), East(x:15 to 25), North(z:-25 to -15)
+        // Central void is x: -15 to 15, z: -15 to 25
+        if (pos.x > -15 + MARGIN && pos.x < 15 - MARGIN && pos.z > -15 + MARGIN) {
+            // In the void! Push them back to the nearest balcony
+            // They came from: West (-15), East (15), North (-15), or South Stairs (z=25)
+            // But south part doesn't have a balcony, just stairs arriving at west/east.
+            const dW = Math.abs(pos.x - (-15));
+            const dE = Math.abs(pos.x - 15);
+            const dN = Math.abs(pos.z - (-15));
+            const min = Math.min(dW, dE, dN);
+            if (min === dW) pos.x = -15 + MARGIN;
+            else if (min === dE) pos.x = 15 - MARGIN;
+            else if (min === dN) pos.z = -15 + MARGIN;
+        }
     }
-    // East wall
-    if (pos.x > maxX) {
-        const gap = DOORWAYS.some(d =>
-            ((d.wall === 'E' && d.roomA === curId) || (d.wall === 'W' && d.roomB === curId))
-            && Math.abs(pos.z - d.cz) < DOOR_HALF);
-        if (!gap) pos.x = maxX;
+
+    let minX = cx - W / 2 + MARGIN, maxX = cx + W / 2 - MARGIN;
+    let minZ = cz - D / 2 + MARGIN, maxZ = cz + D / 2 - MARGIN;
+
+    // For Grand Hall Floor 2, the South wall has NO balcony except the stair landings, so we can't go to z=24.4 unless on stairs
+    if (curId === 'grand_hall' && isUpper) {
+        // Stair arrival is at x=<-15 or x=>15, z=21 to 25.
+        // We handle falling off balcony above, but just to be safe:
+        // Prevent going into corners that don't exist if needed, but the current balcony floor covers the corners.
     }
-    // North wall
-    if (pos.z < minZ) {
-        const gap = DOORWAYS.some(d =>
-            ((d.wall === 'N' && d.roomA === curId) || (d.wall === 'S' && d.roomB === curId))
-            && Math.abs(pos.x - d.cx) < DOOR_HALF);
-        if (!gap) pos.z = minZ;
-    }
-    // South wall
-    if (pos.z > maxZ) {
-        const gap = DOORWAYS.some(d =>
-            ((d.wall === 'S' && d.roomA === curId) || (d.wall === 'N' && d.roomB === curId))
-            && Math.abs(pos.x - d.cx) < DOOR_HALF);
-        if (!gap) pos.z = maxZ;
+
+    // Doorway gap checks matching current floor
+    const checkGap = (wallType, condition) => DOORWAYS.some(d => {
+        const dy = d.cy || 0;
+        if (Math.abs(dy - expectedY) > 1.0) return false;
+        return ((d.wall === wallType && d.roomA === curId) ||
+            ((wallType === 'W' ? 'E' : wallType === 'E' ? 'W' : wallType === 'N' ? 'S' : 'N') && d.roomB === curId))
+            && condition(d);
+    });
+
+    if (pos.x < minX && !checkGap('W', d => Math.abs(pos.z - d.cz) < DOOR_HALF)) pos.x = minX;
+    if (pos.x > maxX && !checkGap('E', d => Math.abs(pos.z - d.cz) < DOOR_HALF)) pos.x = maxX;
+    if (pos.z < minZ && !checkGap('N', d => Math.abs(pos.x - d.cx) < DOOR_HALF)) pos.z = minZ;
+    if (pos.z > maxZ && !checkGap('S', d => Math.abs(pos.x - d.cx) < DOOR_HALF)) pos.z = maxZ;
+
+    // Special case for Grand Hall South doorway (it's the exit door at Floor 1)
+    if (curId === 'grand_hall' && !isUpper && pos.z > maxZ) {
+        if (Math.abs(pos.x) < DOOR_HALF) {
+            // Near exit door, let them hit it
+        } else {
+            pos.z = maxZ;
+        }
     }
 }
-
 // ─── Door hint overlay ────────────────────────────────────
 function showDoorHint(on) {
     const el = document.getElementById('door-hint');
@@ -528,3 +591,4 @@ function render() {
 
 // ─── Boot ────────────────────────────────────────────────
 init().catch(console.error);
+

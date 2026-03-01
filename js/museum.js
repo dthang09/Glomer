@@ -3,33 +3,43 @@ import * as THREE from 'three';
 
 // ── Room definitions ─────────────────────────────────────────
 export const ROOM_DATA = {
-    grand_hall: { name: 'Đại Sảnh', center: [0, 0, 0], size: [50, 12, 50] },
+    grand_hall: { name: 'Đại Sảnh', center: [0, 0, 0], size: [50, 24, 50] }, // H=24 for 2nd floor height!
     painting_gallery: { name: 'Phòng Tranh', center: [-42, 0, 0], size: [34, 12, 50] },
     artifacts_room: { name: 'Phòng Hiện Vật', center: [42, 0, 0], size: [34, 12, 50] },
     sculpture_room: { name: 'Phòng Điêu Khắc', center: [0, 0, -42], size: [50, 12, 34] },
     archive_room: { name: 'Phòng Lưu Trữ', center: [0, 0, 42], size: [50, 12, 34] },
+
+    // Tầng 2
+    royal_bedroom: { name: 'Phòng Hoàng Gia', center: [0, 12, -42], size: [50, 12, 34] },
+    library: { name: 'Thư Viện', center: [-42, 12, 0], size: [34, 12, 50] },
+    armory: { name: 'Phòng Vũ Khí', center: [42, 12, 0], size: [34, 12, 50] },
 };
 
 // Doorway portal connections
 export const DOORWAYS = [
-    { roomA: 'grand_hall', roomB: 'painting_gallery', wall: 'W', cx: -25, cz: 0 },
-    { roomA: 'grand_hall', roomB: 'artifacts_room', wall: 'E', cx: 25, cz: 0 },
-    { roomA: 'grand_hall', roomB: 'sculpture_room', wall: 'N', cx: 0, cz: -25 },
-    { roomA: 'grand_hall', roomB: 'archive_room', wall: 'S', cx: 0, cz: 25 },
+    // Tầng 1
+    { roomA: 'grand_hall', roomB: 'painting_gallery', wall: 'W', cx: -25, cy: 0, cz: 0 },
+    { roomA: 'grand_hall', roomB: 'artifacts_room', wall: 'E', cx: 25, cy: 0, cz: 0 },
+    { roomA: 'grand_hall', roomB: 'sculpture_room', wall: 'N', cx: 0, cy: 0, cz: -25 },
+    { roomA: 'grand_hall', roomB: 'archive_room', wall: 'S', cx: 0, cy: 0, cz: 25 },
+    // Tầng 2
+    { roomA: 'grand_hall', roomB: 'library', wall: 'W', cx: -25, cy: 12, cz: 0 },
+    { roomA: 'grand_hall', roomB: 'armory', wall: 'E', cx: 25, cy: 12, cz: 0 },
+    { roomA: 'grand_hall', roomB: 'royal_bedroom', wall: 'N', cx: 0, cy: 12, cz: -25 },
 ];
 
-// Exported clickable door trigger meshes
 export const doorClickables = [];
-// Exported column XZ positions for collision
 export const columnPositions = [];
 
-// Teleport positions per room
 export const ROOM_TELEPORTS = {
     grand_hall: [0, 1.7, 8],
     painting_gallery: [-42, 1.7, 0],
     artifacts_room: [42, 1.7, 0],
     sculpture_room: [0, 1.7, -42],
     archive_room: [0, 1.7, 42],
+    royal_bedroom: [0, 13.7, -42],
+    library: [-42, 13.7, 0],
+    armory: [42, 13.7, 0],
 };
 
 // ── Helper: create MeshStandardMaterial ─────────────────────
@@ -82,7 +92,7 @@ export function buildInterior(scene) {
 
 // ── Build a single room ───────────────────────────────────────
 function buildRoom(g, id, def, GOLD, GOLDD, MARBLE, MARBLD, CRYSTAL) {
-    const [cx, , cz] = def.center;
+    const [cx, cy, cz] = def.center;
     const [W, H, D] = def.size;
 
     // Assign per-room colours
@@ -95,17 +105,18 @@ function buildRoom(g, id, def, GOLD, GOLDD, MARBLE, MARBLD, CRYSTAL) {
     };
     const { wall: wc, floorA, floorB } = palette[id] || palette.grand_hall;
 
-    buildFloor(g, cx, cz, W, D, floorA, floorB);
-    buildCeiling(g, id, cx, cz, W, D, H, GOLD);
-    buildWalls(g, cx, cz, W, H, D, wc, GOLD, MARBLE, MARBLD);
-    buildColumns(g, cx, cz, W, H, D, MARBLE, GOLD, GOLDD);
-    addCornices(g, cx, cz, W, D, H, GOLD);
+    buildFloor(g, cx, cy, cz, W, D, floorA, floorB);
+    buildCeiling(g, id, cx, cy, cz, W, D, H, GOLD);
+    buildWalls(g, cx, cy, cz, W, H, D, wc, GOLD, MARBLE, MARBLD);
+    buildColumns(g, cx, cy, cz, W, H, D, MARBLE, GOLD, GOLDD);
+    addCornices(g, cx, cy, cz, W, D, H, GOLD);
 
     // Chandeliers
     const chandelierPositions = [[cx, cz]];
+    if (id === 'grand_hall') { buildSecondFloorBalcony(g, cx, cy, cz, W, H, D, MARBLE, GOLD, GOLDD); buildGrandStaircase(g, cx, cy, cz, MARBLE, GOLD); }
     if (W > 40) { chandelierPositions.push([cx - W / 4, cz], [cx + W / 4, cz]); }
     if (D > 50) { chandelierPositions.push([cx, cz - D / 4], [cx, cz + D / 4]); }
-    chandelierPositions.forEach(([px, pz]) => addChandelier(g, px, H - 0.2, pz, GOLD, CRYSTAL));
+    chandelierPositions.forEach(([px, pz]) => addChandelier(g, px, cy + H - 0.2, pz, GOLD, CRYSTAL));
 
     // Room-specific decorations
     if (id === 'grand_hall') addGrandHallDecor(g, cx, cz, W, H, D, GOLD, MARBLE);
@@ -116,7 +127,7 @@ function buildRoom(g, id, def, GOLD, GOLDD, MARBLE, MARBLD, CRYSTAL) {
 }
 
 // ── Checkerboard marble floor ─────────────────────────────────
-function buildFloor(g, cx, cz, W, D, colA, colB) {
+function buildFloor(g, cx, cy, cz, W, D, colA, colB) {
     const sz = 3;
     const matA = mat(colA, 0.22, 0.06);
     const matB = mat(colB, 0.28, 0.04);
@@ -125,7 +136,7 @@ function buildFloor(g, cx, cz, W, D, colA, colB) {
         for (let r = 0; r < rows; r++) {
             const m = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), (c + r) % 2 === 0 ? matA : matB);
             m.rotation.x = -Math.PI / 2;
-            m.position.set(cx - W / 2 + c * sz + sz / 2, 0.01, cz - D / 2 + r * sz + sz / 2);
+            m.position.set(cx - W / 2 + c * sz + sz / 2, cy + 0.01, cz - D / 2 + r * sz + sz / 2);
             m.receiveShadow = true;
             g.add(m);
         }
@@ -133,17 +144,17 @@ function buildFloor(g, cx, cz, W, D, colA, colB) {
 }
 
 // ── Ornate ceiling with fresco + gold coffers ─────────────────
-function buildCeiling(g, id, cx, cz, W, D, H, GOLD) {
+function buildCeiling(g, id, cx, cy, cz, W, D, H, GOLD) {
     // Base ceiling
     const ceilMat = mat(0xFAF4E0, 0.9);
-    addMesh(g, new THREE.PlaneGeometry(W, D), ceilMat, cx, H, cz, Math.PI / 2);
+    addMesh(g, new THREE.PlaneGeometry(W, D), ceilMat, cx, cy + H, cz, Math.PI / 2);
 
     // Central fresco — polygonOffset prevents z-fighting with base ceiling
     const frescoMat = makeFrescoMat(id);
     frescoMat.polygonOffset = true;
     frescoMat.polygonOffsetFactor = -2;
     frescoMat.polygonOffsetUnits = -2;
-    addMesh(g, new THREE.PlaneGeometry(W * 0.5, D * 0.5), frescoMat, cx, H, cz, Math.PI / 2);
+    addMesh(g, new THREE.PlaneGeometry(W * 0.5, D * 0.5), frescoMat, cx, cy + H, cz, Math.PI / 2);
 
     // Gold coffer grid (box strips—no z-fighting issue)
     const coffW = W / 4, coffD = D / 4;
@@ -195,16 +206,16 @@ function makeFrescoMat(id) {
 }
 
 // ── Walls with panels and pilasters ──────────────────────────
-function buildWalls(g, cx, cz, W, H, D, wc, GOLD, MARBLE, MARBLD) {
+function buildWalls(g, cx, cy, cz, W, H, D, wc, GOLD, MARBLE, MARBLD) {
     const wallMat = mat(wc, 0.82, 0.02);
     const panelMat = mat(mixColor(wc, 0xFFFFFF, 0.15), 0.76, 0.02);
     const wainMat = mat(mixColor(wc, 0x000000, 0.18), 0.88, 0.02);
 
     const wallDefs = [
-        { pos: [cx, H / 2, cz - D / 2], rot: [0, 0, 0], len: W },
-        { pos: [cx, H / 2, cz + D / 2], rot: [0, Math.PI, 0], len: W },
-        { pos: [cx - W / 2, H / 2, cz], rot: [0, Math.PI / 2, 0], len: D },
-        { pos: [cx + W / 2, H / 2, cz], rot: [0, -Math.PI / 2, 0], len: D },
+        { pos: [cx, cy + H / 2, cz - D / 2], rot: [0, 0, 0], len: W },
+        { pos: [cx, cy + H / 2, cz + D / 2], rot: [0, Math.PI, 0], len: W },
+        { pos: [cx - W / 2, cy + H / 2, cz], rot: [0, Math.PI / 2, 0], len: D },
+        { pos: [cx + W / 2, cy + H / 2, cz], rot: [0, -Math.PI / 2, 0], len: D },
     ];
 
     wallDefs.forEach(w => {
@@ -217,7 +228,7 @@ function buildWalls(g, cx, cz, W, H, D, wc, GOLD, MARBLE, MARBLD) {
         const wainMat2 = mat(mixColor(wc, 0x000000, 0.18), 0.88, 0.02);
         wainMat2.polygonOffset = true; wainMat2.polygonOffsetFactor = -1; wainMat2.polygonOffsetUnits = -4;
         const wain = new THREE.Mesh(new THREE.PlaneGeometry(w.len, 2.0), wainMat2);
-        wain.position.set(w.pos[0], 1.0, w.pos[2]); wain.rotation.set(...w.rot);
+        wain.position.set(w.pos[0], cy + 1.0, w.pos[2]); wain.rotation.set(...w.rot);
         const wOff = new THREE.Vector3(0, 0, 0.008); wOff.applyEuler(wain.rotation); wain.position.add(wOff);
         g.add(wain);
 
@@ -229,7 +240,7 @@ function buildWalls(g, cx, cz, W, H, D, wc, GOLD, MARBLE, MARBLD) {
             const panelMat2 = mat(mixColor(wc, 0xFFFFFF, 0.15), 0.76, 0.02);
             panelMat2.polygonOffset = true; panelMat2.polygonOffsetFactor = -2; panelMat2.polygonOffsetUnits = -8;
             const panel = new THREE.Mesh(new THREE.PlaneGeometry(pW - 0.7, H - 3.5), panelMat2);
-            panel.position.set(w.pos[0], H / 2 + 0.3, w.pos[2]);
+            panel.position.set(w.pos[0], cy + cy + H / 2 + 0.3, w.pos[2]);
             panel.rotation.set(...w.rot);
             // Offset along wall local X
             const off = new THREE.Vector3(pOffset, 0, 0.015);
@@ -240,8 +251,8 @@ function buildWalls(g, cx, cz, W, H, D, wc, GOLD, MARBLE, MARBLD) {
             const bOff = new THREE.Vector3(pOffset, -0.02, 0.02);
             bOff.applyEuler(panel.rotation);
             const pbH = new THREE.Mesh(new THREE.BoxGeometry(pW - 0.65, 0.05, 0.04), GOLD);
-            pbH.position.set(w.pos[0], H / 2 - 0.25 + (H - 3.5) / 2, w.pos[2]); pbH.rotation.set(...w.rot); pbH.position.add(bOff); g.add(pbH);
-            const pbH2 = pbH.clone(); pbH2.position.y = H / 2 + 0.3 - (H - 3.5) / 2 - 0.05; g.add(pbH2);
+            pbH.position.set(w.pos[0], cy + cy + H / 2 - 0.25 + (H - 3.5) / 2, w.pos[2]); pbH.rotation.set(...w.rot); pbH.position.add(bOff); g.add(pbH);
+            const pbH2 = pbH.clone(); pbH2.position.y = cy + cy + H / 2 + 0.3 - (H - 3.5) / 2 - 0.05; g.add(pbH2);
         }
 
         // Pilasters
@@ -250,30 +261,30 @@ function buildWalls(g, cx, cz, W, H, D, wc, GOLD, MARBLE, MARBLD) {
         for (let pi = 0; pi <= pilCount; pi++) {
             const plx = -w.len / 2 + pi * pilStep;
             const pil = new THREE.Mesh(new THREE.BoxGeometry(0.52, H - 0.4, 0.3), MARBLE);
-            pil.position.set(w.pos[0], H / 2, w.pos[2]); pil.rotation.set(...w.rot);
+            pil.position.set(w.pos[0], cy + H / 2, w.pos[2]); pil.rotation.set(...w.rot);
             const poff = new THREE.Vector3(plx, 0, 0.06);
             poff.applyEuler(pil.rotation);
             pil.position.add(poff);
             g.add(pil);
             // Capital
             const cap = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.38, 0.42), GOLD);
-            cap.position.copy(pil.position); cap.position.y = H - 0.35;
+            cap.position.copy(pil.position); cap.position.y = cy + H - 0.35;
             g.add(cap);
             // Base
             const base = new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.28, 0.42), GOLD);
-            base.position.copy(pil.position); base.position.y = 0.14;
+            base.position.copy(pil.position); base.position.y = cy + 0.14;
             g.add(base);
         }
 
         // Gold baseboard
         const bb = new THREE.Mesh(new THREE.BoxGeometry(w.len, 0.24, 0.08), GOLD);
-        bb.position.set(w.pos[0], 0.12, w.pos[2]); bb.rotation.set(...w.rot);
+        bb.position.set(w.pos[0], cy + 0.12, w.pos[2]); bb.rotation.set(...w.rot);
         g.add(bb);
     });
 }
 
 // ── Corner / wall columns ─────────────────────────────────────
-function buildColumns(g, cx, cz, W, H, D, MARBLE, GOLD, GOLDD) {
+function buildColumns(g, cx, cy, cz, W, H, D, MARBLE, GOLD, GOLDD) {
     const colH = H - 0.5;
     const positions = [];
     [-W / 2 + 2.8, W / 2 - 2.8].forEach(dx =>
@@ -284,20 +295,20 @@ function buildColumns(g, cx, cz, W, H, D, MARBLE, GOLD, GOLDD) {
 
     positions.forEach(([px, pz]) => {
         columnPositions.push([px, pz]); // record for collision
-        addMesh(g, new THREE.CylinderGeometry(0.40, 0.50, colH, 16), MARBLE, px, colH / 2, pz);
-        addMesh(g, new THREE.CylinderGeometry(0.72, 0.40, 0.55, 16), GOLD, px, colH + 0.28, pz);
-        addMesh(g, new THREE.BoxGeometry(1.05, 0.2, 1.05), GOLD, px, colH + 0.66, pz);
-        addMesh(g, new THREE.CylinderGeometry(0.62, 0.62, 0.3, 16), GOLDD, px, 0.15, pz);
-        addMesh(g, new THREE.BoxGeometry(1.05, 0.18, 1.05), GOLDD, px, 0.09, pz);
+        addMesh(g, new THREE.CylinderGeometry(0.40, 0.50, colH, 16), MARBLE, px, cy + colH / 2, pz);
+        addMesh(g, new THREE.CylinderGeometry(0.72, 0.40, 0.55, 16), GOLD, px, cy + colH + 0.28, pz);
+        addMesh(g, new THREE.BoxGeometry(1.05, 0.2, 1.05), GOLD, px, cy + colH + 0.66, pz);
+        addMesh(g, new THREE.CylinderGeometry(0.62, 0.62, 0.3, 16), GOLDD, px, cy + 0.15, pz);
+        addMesh(g, new THREE.BoxGeometry(1.05, 0.18, 1.05), GOLDD, px, cy + 0.09, pz);
     });
 }
 
 // ── Crown cornices on all 4 sides ─────────────────────────────
-function addCornices(g, cx, cz, W, D, H, GOLD) {
+function addCornices(g, cx, cy, cz, W, D, H, GOLD) {
     const hw = W / 2, hd = D / 2;
     // Top
-    [[cx, H - 0.2, cz - hd, W, 0],
-    [cx, H - 0.2, cz + hd, W, 0],
+    [[cx, cy + H - 0.2, cz - hd, W, 0],
+    [cx, cy + H - 0.2, cz + hd, W, 0],
     [cx - hw, H - 0.2, cz, D, Math.PI / 2],
     [cx + hw, H - 0.2, cz, D, Math.PI / 2]].forEach(([x, y, z, len, ry]) => {
         addMesh(g, new THREE.BoxGeometry(len, 0.44, 0.36), GOLD, x, y, z, 0, ry);
@@ -354,29 +365,29 @@ function addChandelier(g, x, y, z, GOLD, CRYSTAL) {
 function buildDoorway(g, d, GOLD, GOLDD, MARBLE) {
     const DW = 6, DH = 9;
     const isNS = d.wall === 'N' || d.wall === 'S';
-    const { cx, cz } = d;
+    const { cx, cy = 0, cz } = d;
 
     // Posts
     [-1, 1].forEach(side => {
         const px = isNS ? cx + side * (DW / 2 + 0.22) : cx;
         const pz = isNS ? cz : cz + side * (DW / 2 + 0.22);
-        addMesh(g, new THREE.BoxGeometry(0.48, DH, 0.58), MARBLE, px, DH / 2, pz);
-        addMesh(g, new THREE.BoxGeometry(0.75, 0.38, 0.75), GOLD, px, DH + 0.19, pz);
+        addMesh(g, new THREE.BoxGeometry(0.48, DH, 0.58), MARBLE, px, cy + cy + DH / 2, pz);
+        addMesh(g, new THREE.BoxGeometry(0.75, 0.38, 0.75), GOLD, px, cy + cy + DH + 0.19, pz);
     });
 
     // Lintel
-    addMesh(g, new THREE.BoxGeometry(isNS ? DW + 1.4 : 0.52, 0.46, isNS ? 0.52 : DW + 1.4), GOLD, cx, DH + 0.23, cz);
+    addMesh(g, new THREE.BoxGeometry(isNS ? DW + 1.4 : 0.52, 0.46, isNS ? 0.52 : DW + 1.4), GOLD, cx, cy + cy + DH + 0.23, cz);
 
     // Arch (half-torus)
     const archGeo = new THREE.TorusGeometry(DW / 2, 0.2, 10, 26, Math.PI);
     const arch = new THREE.Mesh(archGeo, GOLD);
-    arch.position.set(cx, DH, cz);
+    arch.position.set(cx, cy + DH, cz);
     arch.rotation.x = Math.PI / 2;
     if (!isNS) arch.rotation.z = Math.PI / 2;
     g.add(arch);
 
     // Keystone
-    addMesh(g, new THREE.SphereGeometry(0.26, 8, 8), GOLD, cx, DH + DW / 2 + 0.05, cz);
+    addMesh(g, new THREE.SphereGeometry(0.26, 8, 8), GOLD, cx, cy + cy + DH + DW / 2 + 0.05, cz);
 
     // Decorative door panels
     [-1, 1].forEach(side => {
@@ -384,27 +395,27 @@ function buildDoorway(g, d, GOLD, GOLDD, MARBLE) {
         const pz = isNS ? cz : cz + side * (DW / 4);
         const wDoor = isNS ? DW / 2 - 0.12 : 0.2;
         const dDoor = isNS ? 0.2 : DW / 2 - 0.12;
-        addMesh(g, new THREE.BoxGeometry(wDoor, DH - 0.5, dDoor), mat(0x4A2E1A, 0.55, 0.05), px, DH / 2 - 0.25, pz);
+        addMesh(g, new THREE.BoxGeometry(wDoor, DH - 0.5, dDoor), mat(0x4A2E1A, 0.55, 0.05), px, cy + DH / 2 - 0.25, pz);
         // Inset gold
         addMesh(g, new THREE.BoxGeometry(wDoor * 0.75, DH * 0.35, isNS ? 0.12 : dDoor * 0.75),
-            mat(0xD4A820, 0.1, 0.9, 0xA07808, 0.2), px, DH * 0.65, pz);
+            mat(0xD4A820, 0.1, 0.9, 0xA07808, 0.2), px, cy + cy + DH * 0.65, pz);
         addMesh(g, new THREE.BoxGeometry(wDoor * 0.75, DH * 0.3, isNS ? 0.12 : dDoor * 0.75),
-            mat(0xD4A820, 0.1, 0.9, 0xA07808, 0.2), px, DH * 0.25, pz);
+            mat(0xD4A820, 0.1, 0.9, 0xA07808, 0.2), px, cy + cy + DH * 0.25, pz);
         // Door handle
         addMesh(g, new THREE.SphereGeometry(0.1, 8, 8), mat(0xD4A820, 0.08, 0.96),
-            isNS ? cx + side * 0.45 : cx, 1.05, isNS ? cz : cz + side * 0.45);
+            isNS ? cx + side * 0.45 : cx, cy + cy + 1.05, isNS ? cy + cz : cz + side * 0.45);
     });
 
     // INVISIBLE click trigger — transparent (NOT visible:false) so raycaster can hit it
     const trigGeo = new THREE.PlaneGeometry(DW - 1.0, DH - 1.5);
     const trigMat = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
     const trig = new THREE.Mesh(trigGeo, trigMat.clone());
-    trig.position.set(cx, DH / 2 - 0.5, cz);
+    trig.position.set(cx, cy + DH / 2 - 0.5, cz);
     if (!isNS) trig.rotation.y = Math.PI / 2;
     trig.userData.targetRoom = d.roomB; trig.userData.isDoor = true;
     g.add(trig); doorClickables.push(trig);
     const trig2 = new THREE.Mesh(trigGeo.clone(), trigMat.clone());
-    trig2.position.set(cx, DH / 2 - 0.5, cz);
+    trig2.position.set(cx, cy + DH / 2 - 0.5, cz);
     if (!isNS) trig2.rotation.y = Math.PI / 2;
     trig2.userData.targetRoom = d.roomA; trig2.userData.isDoor = true;
     g.add(trig2); doorClickables.push(trig2);
@@ -424,7 +435,7 @@ function addGrandHallDecor(g, cx, cz, W, H, D, GOLD, MARBLE) {
     addMesh(g, new THREE.BoxGeometry(3.9, 0.22, 2.3), GOLD, cx, 1.21, cz - D / 2 + 3.2);
     addMesh(g, new THREE.BoxGeometry(3.9, 0.2, 0.12), GOLD, cx, 5.1, cz - D / 2 + 2.1);
     // Crown above throne
-    addMesh(g, new THREE.TorusGeometry(0.65, 0.13, 8, 22), GOLD, cx, H - 1.5, cz - D / 2 + 2.4);
+    addMesh(g, new THREE.TorusGeometry(0.65, 0.13, 8, 22), GOLD, cx, cy + H - 1.5, cz - D / 2 + 2.4);
     for (let i = 0; i < 8; i++) {
         const a = (i / 8) * Math.PI * 2;
         addMesh(g, new THREE.ConeGeometry(0.07, 0.4, 6), GOLD,
@@ -435,11 +446,11 @@ function addGrandHallDecor(g, cx, cz, W, H, D, GOLD, MARBLE) {
     [-W / 2 + 1.4, W / 2 - 1.4].forEach((mx, mi) => {
         const mirMat = new THREE.MeshStandardMaterial({ color: 0xCCDDEE, roughness: 0, metalness: 0.98 });
         const mirr = new THREE.Mesh(new THREE.PlaneGeometry(5.5, 6.5), mirMat);
-        mirr.position.set(cx + mx, H / 2 + 0.3, cz);
+        mirr.position.set(cx + mx, cy + cy + H / 2 + 0.3, cz);
         mirr.rotation.y = mi === 0 ? Math.PI / 2 : -Math.PI / 2;
         g.add(mirr);
         // Gold frame
-        addMesh(g, new THREE.BoxGeometry(0.22, 7.2, 6.2), GOLD, cx + mx + (mi === 0 ? -0.12 : 0.12), H / 2 + 0.3, cz);
+        addMesh(g, new THREE.BoxGeometry(0.22, 7.2, 6.2), GOLD, cx + mx + (mi === 0 ? -0.12 : 0.12), cy + cy + H / 2 + 0.3, cz);
     });
 }
 
@@ -493,10 +504,10 @@ function addArtifactsDecor(g, cx, cz, W, H, D, GOLD, MARBLE) {
 function addSculptureDecor(g, cx, cz, W, H, D, GOLD, MARBLE) {
     // Bright skylight
     const sky = new THREE.PointLight(0xFFFFFF, 2.2, 55, 1.5);
-    sky.position.set(cx, H - 0.5, cz); g.add(sky);
+    sky.position.set(cx, cy + H - 0.5, cz); g.add(sky);
     addMesh(g, new THREE.CircleGeometry(5.5, 32),
         new THREE.MeshStandardMaterial({ color: 0xFFFFFF, emissive: 0xFFFFFF, emissiveIntensity: 0.55 }),
-        cx, H - 0.05, cz, Math.PI / 2);
+        cx, cy + H - 0.05, cz, Math.PI / 2);
 
     // Busts in a circle
     const sMat = mat(0xE0D8C8, 0.55, 0.02);
@@ -579,9 +590,99 @@ function mixColor(hex, mix, amount) {
 // ── Room detection + teleports (re-exported) ─────────────────
 export function detectRoom(x, z) {
     for (const [id, def] of Object.entries(ROOM_DATA)) {
-        const [cx, , cz] = def.center;
+        const [cx, cy, cz] = def.center;
         const [W, , D] = def.size;
         if (Math.abs(x - cx) < W / 2 && Math.abs(z - cz) < D / 2) return id;
     }
     return null;
 }
+
+// ── Second Floor Balcony (U-Shape) ────────────────────────────
+function buildSecondFloorBalcony(g, cx, cy, cz, W, H, D, MARBLE, GOLD, GOLDD) {
+    const floorH = 12; // 2nd floor height
+    const bw = 10; // Balcony width
+    const balcMat = new THREE.MeshStandardMaterial({ color: 0xE8DCC8, roughness: 0.3 });
+
+    // West balcony (x: -25 to -15)
+    addMesh(g, new THREE.BoxGeometry(bw, 0.4, D), balcMat, cx - W / 2 + bw / 2, floorH - 0.2, cz);
+    // East balcony (x: 15 to 25)
+    addMesh(g, new THREE.BoxGeometry(bw, 0.4, D), balcMat, cx + W / 2 - bw / 2, floorH - 0.2, cz);
+    // North balcony (z: -25 to -15) bridging W/E
+    addMesh(g, new THREE.BoxGeometry(W - 2 * bw, 0.4, bw), balcMat, cx, floorH - 0.2, cz - D / 2 + bw / 2);
+
+    // Railings
+    const railMat = mat(0xD4A820, 0.1, 0.9);
+    const railH = 1.0;
+
+    // Helper to draw railing
+    const drawRailing = (rx, rz, rW, rD) => {
+        addMesh(g, new THREE.BoxGeometry(rW || 0.1, railH, rD || 0.1), railMat, rx, floorH + railH / 2, rz);
+        // Handrail top
+        addMesh(g, new THREE.BoxGeometry(rW ? rW : 0.2, 0.1, rD ? rD : 0.2), mat(0x4A2E1A), rx, floorH + railH, rz);
+    };
+
+    // West railing (x=-15)
+    drawRailing(cx - W / 2 + bw, cz + bw / 2, 0.1, D - bw);
+    // East railing (x=15)
+    drawRailing(cx + W / 2 - bw, cz + bw / 2, 0.1, D - bw);
+    // North railing (z=-15)
+    drawRailing(cx, cz - D / 2 + bw, W - 2 * bw, 0.1);
+
+    // Spindles (balusters)
+    const spindleG = new THREE.CylinderGeometry(0.04, 0.04, railH, 8);
+    for (let z = cz - D / 2 + bw; z < cz + D / 2; z += 0.5) {
+        addMesh(g, spindleG, GOLD, cx - W / 2 + bw, floorH + railH / 2, z);
+        addMesh(g, spindleG, GOLD, cx + W / 2 - bw, floorH + railH / 2, z);
+    }
+    for (let x = cx - W / 2 + bw; x < cx + W / 2 - bw; x += 0.5) {
+        addMesh(g, spindleG, GOLD, x, floorH + railH / 2, cz - D / 2 + bw);
+    }
+}
+
+// ── Grand Staircase ───────────────────────────────────────────
+function buildGrandStaircase(g, cx, cy, cz, MARBLE, GOLD) {
+    // Grand staircase from South side (z=25) up to West/East balconies (y=12)
+    // 1. Central flight: z=10 to z=21, y=0 to y=6 (width=8)
+    // 2. Mid landing: z=21 to z=25, x=-4 to 4, y=6
+    // 3. Left flight: x=-4 to -15, y=6 to 12, z=21 to 25
+    // 4. Right flight: x=4 to 15, y=6 to 12, z=21 to 25
+
+    const stairMat = mat(0xE8DCC8, 0.3);
+    const carpetMat = mat(0x8B0000, 0.9); // Red carpet
+
+    // Central flight
+    const steps1 = 20;
+    const dy1 = 6 / steps1;
+    const dz1 = 11 / steps1;
+    for (let i = 0; i < steps1; i++) {
+        const y = cy + i * dy1;
+        const z = cz + 10 + i * dz1;
+        addMesh(g, new THREE.BoxGeometry(8, dy1, dz1), stairMat, cx, y + dy1 / 2, z + dz1 / 2);
+        addMesh(g, new THREE.BoxGeometry(4, dy1 + 0.01, dz1 + 0.01), carpetMat, cx, y + dy1 / 2, z + dz1 / 2);
+    }
+
+    // Landing
+    addMesh(g, new THREE.BoxGeometry(8, 0.4, 4), stairMat, cx, cy + 6 - 0.2, cz + 23);
+    addMesh(g, new THREE.PlaneGeometry(8, 4), carpetMat, cx, cy + 6.01, cz + 23, -Math.PI / 2);
+
+    // Left flight (goes West to x=-15)
+    const steps2 = 20;
+    const dy2 = 6 / steps2;
+    const dx2 = 11 / steps2; // from x=-4 to x=-15
+    for (let i = 0; i < steps2; i++) {
+        const y = cy + 6 + i * dy2;
+        const x = cx - 4 - i * dx2;
+        addMesh(g, new THREE.BoxGeometry(dx2, dy2, 4), stairMat, x - dx2 / 2, y + dy2 / 2, cz + 23);
+        addMesh(g, new THREE.BoxGeometry(dx2 + 0.01, dy2 + 0.01, 2), carpetMat, x - dx2 / 2, y + dy2 / 2, cz + 23);
+    }
+
+    // Right flight (goes East to x=15)
+    for (let i = 0; i < steps2; i++) {
+        const y = cy + 6 + i * dy2;
+        const x = cx + 4 + i * dx2;
+        addMesh(g, new THREE.BoxGeometry(dx2, dy2, 4), stairMat, x + dx2 / 2, y + dy2 / 2, cz + 23);
+        addMesh(g, new THREE.BoxGeometry(dx2 + 0.01, dy2 + 0.01, 2), carpetMat, x + dx2 / 2, y + dy2 / 2, cz + 23);
+    }
+}
+
+
